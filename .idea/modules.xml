@@ -3,8 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/libkdbx.iml" filepath="$PROJECT_DIR$/.idea/modules/libkdbx.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libkdbx_main.iml" filepath="$PROJECT_DIR$/.idea/modules/libkdbx_main.iml" group="libkdbx" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libkdbx_test.iml" filepath="$PROJECT_DIR$/.idea/modules/libkdbx_test.iml" group="libkdbx" />
     </modules>
   </component>
 </project>
