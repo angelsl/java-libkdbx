@@ -127,10 +127,9 @@ public class Crypto {
      * Decode a KeePass hashed block stream.
      * @param src The byte array containing the stream
      * @param offset The offset in the byte array at which the stream begins
-     * @param length The length of the stream
      * @return The decoded data
      */
-    public byte[] decodeHashedBlockStream(byte[] src, int offset, int length) {
+    public byte[] decodeHashedBlockStream(byte[] src, int offset) {
         /*
         hashedBlock
         [uint index]
@@ -142,7 +141,8 @@ public class Crypto {
         [hashedBlock... blocks]
         [hashedBlock {hash = 0, len = 0} lastblock]
         */
-        ByteBuffer ms = ByteBuffer.wrap(src, offset, length);
+        ByteBuffer ms = ByteBuffer.wrap(src);
+        ms.position(offset);
         ByteBuffer os = ByteBuffer.allocate(1024 * 1024);
         ms.order(ByteOrder.LITTLE_ENDIAN);
         os.order(ByteOrder.LITTLE_ENDIAN);
@@ -194,10 +194,9 @@ public class Crypto {
      * @param key The raw key for HMAC
      * @param src The byte array containing the stream
      * @param offset The offset in the byte array at which the stream begins
-     * @param length The length of the stream
      * @return The decoded data
      */
-    public byte[] decodeHmacBlockStream(byte[] key, byte[] src, int offset, int length) {
+    public byte[] decodeHmacBlockStream(byte[] key, byte[] src, int offset) {
         /*
         hmacBlock
         [byte[32] hmac = hmac256(sha512(ulongindex || key), ulongindex || len || data)]
@@ -209,7 +208,8 @@ public class Crypto {
         [hmacBlock {len = 0} lastblock]
         */
         HMac hmac = _hmacsha256.get();
-        ByteBuffer ms = ByteBuffer.wrap(src, offset, length);
+        ByteBuffer ms = ByteBuffer.wrap(src);
+        ms.position(offset);
         ByteBuffer os = ByteBuffer.allocate(1024 * 1024);
         ms.order(ByteOrder.LITTLE_ENDIAN);
         os.order(ByteOrder.LITTLE_ENDIAN);

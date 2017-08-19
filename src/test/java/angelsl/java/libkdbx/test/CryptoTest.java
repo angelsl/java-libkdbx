@@ -47,8 +47,8 @@ public class CryptoTest {
         byte[] hashedOut1 = Base64.getDecoder().decode("AAAAADiyYVkaJsQOum01HOPC02SsOjzUK1u2NoeEY7ge8cV5AAIAABGALf+7IYHO/c7GAKdUwyb5b8S6nY6kOwWsigay4Q9lLFa7fhvZosuvFcJSQ3AAcxhhiHGKkiyD2/L6D5Z7HBy/YNRQmUQLH835C4jMUveUrBftUFie25kpN6Io3pM0M/ilkuKbr9rTVmikkYakt4n6ZWJ/jcvEIYU6J2Gi4kE5xNePJr8V+f08Gvrw+UkShYAZLngxtaUs4XFdYYh5MXMmasyvFZDJ5WxlQnPR0yc7J6HhibPICA8xYkVOt5d1w+mGyY99Y3DvT0kLy3IyWw1KITnml6jAXmK9fbJKey3U8H+KSwmYvsMx8TlqvDyc/wc4BJZejitBxmssv+W9pNQbN9vzpxAEsWN1tKZuVaElIH2rEneXdmFTSYWea/7edExlT4VgqVf2M1Iy6NqF0nHJBp5nEZJdhMB6oF6LZkZkl0BZCQYcxXcmtN4kZI6GzXYT1GRfdmK6B8rF5gn5a80MzlCaK8hqrUEnQVyzOCAy89Lnd5LiBCHdnwE7V95uLEgRGJU97KKuqSYiODQGBs+qkvI3EvQ7KsovvYvHL1ZiuRUToSCK9QcvOc1rv8zt1pgykMTsNxpU1u7LDi4W5nnQv34f8mWvIJ3qB9gmz2r+QebzlJ6SdoL6v8sxv+bYGVJUm/9NzuQzg3AmAi9BLQaEzMxII1LbPkn7JDKZfWC2AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==");
         byte[] hashedOut2 = Base64.getDecoder().decode("AAAAAD/aHzdwc3B0tZjLmgO5s/p9qRMWYDenqWtXcsV4mkzhAAIAAKhroNXPbpuB+IVZ17NfyVAlCx36gxH9N/KU1sJKkb/LiuGoPhHENaHUb0g1AftlvI71PjSP11KXbmjiO5jZN2fGjkzStos+YdV8JhPJyDb3LhkzVFKLO7KPEdCo4foJ+jjgb3KukwYCt91fE7E+zqUy6w1+puIUOlKZQ6W7ln/bcivb6FjDSJsTMJ11KycBUEIqdvbsi1RVyzQgFE9gRyBeg6GFY+ZNbqJyanVFnw4qmPJikR+J7ufXhRwkozRLs+l8FqiGfO1c3AdTeiDeDysl9Xtd/bUA1JS5rd3JKctuJreMyYlmpBwEBrQYNnTH+XXw/q247rUze0ITzM4QkrM85FNoUkaivlBfWPcB6J4g8rRn2SodtjgCWE1HU9hO9HMA21EgXqcvTT9dWJa9MpOj8tkaqbiJHy4bZvn5W2t4EWOEAA1NAJMNOIzqwF2hRCa6o2D+M0u6d7siBPitNfHU5EcyOTKGVvJGDHAsnl/QeSLSP7gLet0YyYhRKvubXwKaFtsWbwrzM01tuCfajthcUorW2vY5yGppGXCpNCv2qq1ukYiDugoX3wtqnsK2Pjuw9NhxxIQLYU5xrFaaSv8hdg15a/xQ2JeAvvvrziqos9o0+T9TheYoYjA6Eg6zfZUMSSe0PNI+XxxA8QWIIJIjyfl7ZVC/zfEnUQnMFsaJAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==");
 
-        assertArrayEquals(_p1, c.decodeHashedBlockStream(hashedOut1, 0, hashedOut1.length));
-        assertArrayEquals(_p2, c.decodeHashedBlockStream(hashedOut2, 0, hashedOut2.length));
+        assertArrayEquals(_p1, c.decodeHashedBlockStream(hashedOut1, 0));
+        assertArrayEquals(_p2, c.decodeHashedBlockStream(hashedOut2, 0));
     }
 
     @Test
@@ -58,8 +58,8 @@ public class CryptoTest {
         byte[] k2hmac = Base64.getDecoder().decode("6xkIPKZBzmHCHGzOuV5OpfmtYNZGD6y0dQ9mBkQ+wmv85wkHSP+YxCe2HGISgtREtfeXD8gNG9tsU8aW28gdhA==");
         byte[] hmacOut2 = Base64.getDecoder().decode("qLgl5hEUdtMccW124ktvgTm2gvvBYiqpkuQZTU05KtoAAgAAqGug1c9um4H4hVnXs1/JUCULHfqDEf038pTWwkqRv8uK4ag+EcQ1odRvSDUB+2W8jvU+NI/XUpduaOI7mNk3Z8aOTNK2iz5h1XwmE8nINvcuGTNUUos7so8R0Kjh+gn6OOBvcq6TBgK33V8TsT7OpTLrDX6m4hQ6UplDpbuWf9tyK9voWMNImxMwnXUrJwFQQip29uyLVFXLNCAUT2BHIF6DoYVj5k1uonJqdUWfDiqY8mKRH4nu59eFHCSjNEuz6XwWqIZ87VzcB1N6IN4PKyX1e139tQDUlLmt3ckpy24mt4zJiWakHAQGtBg2dMf5dfD+rbjutTN7QhPMzhCSszzkU2hSRqK+UF9Y9wHoniDytGfZKh22OAJYTUdT2E70cwDbUSBepy9NP11Ylr0yk6Py2RqpuIkfLhtm+flba3gRY4QADU0Akw04jOrAXaFEJrqjYP4zS7p3uyIE+K018dTkRzI5MoZW8kYMcCyeX9B5ItI/uAt63RjJiFEq+5tfApoW2xZvCvMzTW24J9qO2FxSitba9jnIamkZcKk0K/aqrW6RiIO6ChffC2qewrY+O7D02HHEhAthTnGsVppK/yF2DXlr/FDYl4C+++vOKqiz2jT5P1OF5ihiMDoSDrN9lQxJJ7Q80j5fHEDxBYggkiPJ+XtlUL/N8SdRCcwWxon9wJ2pzfK02Ch8OiDBs+KBa5aRfUs/LM0sYl105mz9GQAAAAA=");
 
-        assertArrayEquals(_p1, c.decodeHmacBlockStream(k1hmac, hmacOut1, 0, hmacOut1.length));
-        assertArrayEquals(_p2, c.decodeHmacBlockStream(k2hmac, hmacOut2, 0, hmacOut2.length));
+        assertArrayEquals(_p1, c.decodeHmacBlockStream(k1hmac, hmacOut1, 0));
+        assertArrayEquals(_p2, c.decodeHmacBlockStream(k2hmac, hmacOut2, 0));
     }
 
     @Test
