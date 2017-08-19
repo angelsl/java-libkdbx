@@ -37,6 +37,14 @@ public class Crypto {
 
     public Crypto() {}
 
+    /**
+     * Calculate a hash
+     * @param type The type of hash (<code>HASH_SHA256</code> or <code>HASH_SHA512</code>)
+     * @param src The byte array containing data for which the hash is to be calculated
+     * @param index The offset in the byte array at which the data begins
+     * @param count The length of the data
+     * @return The hash
+     */
     public byte[] hash(int type, byte[] src, int index, int count) {
         Digest d;
         switch (type) {
@@ -57,6 +65,14 @@ public class Crypto {
         return ret;
     }
 
+    /**
+     * Calculate a HMAC-SHA256 MAC.
+     * @param key The raw HMAC key
+     * @param src The byte array containing data for which the MAC is to be calculated
+     * @param index The offset in the byte array at which the data begins
+     * @param count The length of the data
+     * @return The 32-byte MAC
+     */
     public byte[] hmacsha256(byte[] key, byte[] src, int index, int count) {
         HMac h = _hmacsha256.get();
 
@@ -67,6 +83,14 @@ public class Crypto {
         return ret;
     }
 
+    /**
+     * Decode a AES256-encrypted byte array.
+     * @param key The AES256 key
+     * @param src The encrypted byte array
+     * @param index The offset in the byte array at which the encrypted data begins
+     * @param count The length of the encrypted data
+     * @return The decrypted data
+     */
     public byte[] aes256Decrypt(byte[] key, byte[] iv, byte[] src, int index, int count) {
         PaddedBufferedBlockCipher e = _aes.get();
         e.init(false, new ParametersWithIV(new KeyParameter(key), iv));
@@ -82,6 +106,14 @@ public class Crypto {
         return Arrays.copyOf(buf, len);
     }
 
+    /**
+     * Decode a ChaCha20-encrypted byte array.
+     * @param key The ChaCha20 key
+     * @param src The encrypted byte array
+     * @param index The offset in the byte array at which the encrypted data begins
+     * @param count The length of the encrypted data
+     * @return The decrypted data
+     */
     public byte[] chacha20Decrypt(byte[] key, byte[] iv, byte[] src, int index, int count) {
         ChaCha7539Engine e = _chacha.get();
         e.init(false, new ParametersWithIV(new KeyParameter(key), iv));
@@ -91,6 +123,13 @@ public class Crypto {
         return out;
     }
 
+    /**
+     * Decode a KeePass hashed block stream.
+     * @param src The byte array containing the stream
+     * @param offset The offset in the byte array at which the stream begins
+     * @param length The length of the stream
+     * @return The decoded data
+     */
     public byte[] decodeHashedBlockStream(byte[] src, int offset, int length) {
         /*
         hashedBlock
@@ -150,6 +189,14 @@ public class Crypto {
         }
     }
 
+    /**
+     * Decode a KeePass HMAC-ed block stream.
+     * @param key The raw key for HMAC
+     * @param src The byte array containing the stream
+     * @param offset The offset in the byte array at which the stream begins
+     * @param length The length of the stream
+     * @return The decoded data
+     */
     public byte[] decodeHmacBlockStream(byte[] key, byte[] src, int offset, int length) {
         /*
         hmacBlock
@@ -207,10 +254,22 @@ public class Crypto {
         }
     }
 
+    /**
+     * Get a 64-byte HMAC key from a raw key (typically 64 bytes) and a 64-bit nonce
+     * @param key The raw key
+     * @param nonce The nonce
+     * @return The HMAC key
+     */
     public byte[] getHmacKey(byte[] key, long nonce) {
         return getHmacKey(key, Util.longToBytes(nonce));
     }
 
+    /**
+     * Get a 64-byte HMAC key from a raw key (typically 64 bytes) and a nonce
+     * @param key The raw key
+     * @param nonce The nonce
+     * @return The HMAC key
+     */
     public byte[] getHmacKey(byte[] key, byte[] nonce) {
         Digest d = _sha512.get();
         byte[] ret = new byte[d.getDigestSize()];
