@@ -79,9 +79,7 @@ public class Crypto {
             return null;
         }
 
-        byte[] ret = new byte[len];
-        System.arraycopy(buf, 0, ret, 0, len);
-        return ret;
+        return Arrays.copyOf(buf, len);
     }
 
     public byte[] chacha20Decrypt(byte[] key, byte[] iv, byte[] src, int index, int count) {
