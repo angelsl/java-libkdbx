@@ -1,6 +1,9 @@
 package angelsl.java.libkdbx;
 
 class Util {
+    public static final int U16_MASK = 0xFFFF;
+    public static final long U32_MASK = 0xFFFFFFFFL;
+
     private Util() {}
 
     /**
