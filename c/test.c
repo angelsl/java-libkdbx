@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     void *res;
     size_t ressz = kdbxo_unwrap(data, fsz, key, &res);
-    if (!res | !ressz) {
+    if (!res || !ressz) {
         printf("failed: %s\n", kdbxo_error ? kdbxo_error : "no error");
         return 1;
     }

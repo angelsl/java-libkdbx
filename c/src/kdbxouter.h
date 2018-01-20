@@ -20,7 +20,11 @@ extern kdbxo_result kdbxo_hmacsha256(const void *key64, void *dest32, const void
 extern kdbxo_result kdbxo_aes256cbc_d(const void *key32, const void *iv16, void *dest, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_chacha20_d(const void *key32, const void *iv12, void *dest, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_aeskdf(const void *seed32, void *key32, size_t rounds);
-extern kdbxo_result kdbxo_argon2kdf(void);
+extern kdbxo_result kdbxo_argon2kdf(uint32_t iter, uint32_t mem, uint32_t lanes, uint32_t version,
+    void *key32,
+    const void *salt, uint32_t saltlen,
+    const void *secret, uint32_t secretlen,
+    const void *ad, uint32_t adlen);
 extern size_t kdbxo_hashedblock_d(const void *const src, size_t srcsz, void **outp);
 extern size_t kdbxo_hmacblock_d(const void *src, size_t srcsz, void **outp);
 extern kdbxo_result kdbxo_hmac_block_key(void *dest64, const void *key, size_t keysz, uint64_t nonce);

@@ -95,7 +95,18 @@ typedef struct {
             uint64_t rounds;
         } aes;
         struct {
-            int todo;
+            const void *salt;
+            size_t salt_sz;
+
+            uint32_t parallelism;
+            uint64_t memory;
+            uint64_t iterations;
+            uint32_t version;
+
+            const void *secret;
+            size_t secret_sz;
+            const void *ad;
+            size_t ad_sz;
         } argon2;
     } kdf_params;
 
@@ -109,6 +120,128 @@ typedef struct {
     const void *ssb;
     size_t ssb_sz;
 } kdbx_header;
+
+static kdbxo_result read_map(const char *data, size_t datasz, void *d,
+    void (*handler)(void *d, enum map_type type, const char *name, size_t namesz, const void *val, size_t valsz)) {
+    const char *const end = data + datasz;
+    if (data + 2 > end) {
+        kdbxo_set_error("unexpected EOF while reading KDBX map");
+        return RESULT_ERR;
+    }
+    data++;
+    if (*(const uint8_t *) (data++) > 1) {
+        kdbxo_set_error("KDBX map structure too new");
+        return RESULT_ERR;
+    }
+
+    while (1) {
+        if (data + 1 > end) {
+            kdbxo_set_error("unexpected EOF while reading KDBX map");
+            return RESULT_ERR;
+        }
+        enum map_type type = (enum map_type) (*(const uint8_t *) data);
+        if (type == MAP_NONE) {
+            return RESULT_OK;
+        }
+        data += 1;
+
+        if (data + 4 > end) {
+            kdbxo_set_error("unexpected EOF while reading KDBX map");
+            return RESULT_ERR;
+        }
+        size_t namesz = *(const uint32_t *) data;
+        data += 4;
+
+        const char *name = data;
+        if (name + namesz + 4 > end) {
+            kdbxo_set_error("unexpected EOF while reading KDBX map");
+            return RESULT_ERR;
+        }
+        data += namesz;
+
+        size_t valsz = *(const uint32_t *) data;
+        data += 4;
+
+        const char *val = data;
+        if (val + valsz > end) {
+            kdbxo_set_error("unexpected EOF while reading KDBX map");
+            return RESULT_ERR;
+        }
+        data += valsz;
+
+        if (handler) {
+            handler(d, type, name, namesz, val, valsz);
+        }
+    }
+}
+
+static void kdfp_uuid(void *d, enum map_type type, const char *name, size_t namesz, const void *val, size_t valsz) {
+    const void **uuidp = d;
+    if (type != MAP_BYTEARRAY || valsz < 16 || namesz < 5 || memcmp("$UUID", name, 5)) {
+        return;
+    }
+    *uuidp = val;
+}
+
+static void kdfp_aes(void *d, enum map_type type, const char *name, size_t namesz, const void *val, size_t valsz) {
+    kdbx_header *hdr = d;
+    if (namesz != 1) {
+        return;
+    }
+
+    switch (*name) {
+    case 'R':
+        if (type != MAP_UINT64 || valsz < 8) { return; }
+        hdr->kdf_params.aes.rounds = *(const uint64_t *) val;
+        break;
+    case 'S':
+        if (type != MAP_BYTEARRAY) { return; }
+        hdr->kdf_params.aes.seed = val;
+        hdr->kdf_params.aes.seed_sz = valsz;
+        break;
+    }
+}
+
+static void kdfp_argon2(void *d, enum map_type type, const char *name, size_t namesz, const void *val, size_t valsz) {
+    kdbx_header *hdr = d;
+    if (namesz != 1) {
+        return;
+    }
+
+    switch (*name) {
+    case 'P':
+        if (type != MAP_UINT32 || valsz < 4) { return; }
+        hdr->kdf_params.argon2.parallelism = *(const uint32_t *) val;
+        break;
+    case 'M':
+        if (type != MAP_UINT64 || valsz < 8) { return; }
+        hdr->kdf_params.argon2.memory = *(const uint64_t *) val;
+        break;
+    case 'I':
+        if (type != MAP_UINT64 || valsz < 8) { return; }
+        hdr->kdf_params.argon2.iterations = *(const uint64_t *) val;
+        break;
+    case 'V':
+        if (type != MAP_UINT32 || valsz < 4) { return; }
+        hdr->kdf_params.argon2.version = *(const uint32_t *) val;
+        break;
+    case 'S':
+        if (type != MAP_BYTEARRAY) { return; }
+        hdr->kdf_params.argon2.salt = val;
+        hdr->kdf_params.argon2.salt_sz = valsz;
+        break;
+    case 'K':
+        if (type != MAP_BYTEARRAY) { return; }
+        hdr->kdf_params.argon2.secret = val;
+        hdr->kdf_params.argon2.secret_sz = valsz;
+        break;
+    case 'A':
+        if (type != MAP_BYTEARRAY) { return; }
+        hdr->kdf_params.argon2.ad = val;
+        hdr->kdf_params.argon2.ad_sz = valsz;
+        break;
+    }
+}
 
 static kdbxo_result process_hdr(kdbx_header *hdr, uint8_t type, const char *data, size_t datasz) {
     switch (type) {
@@ -164,7 +297,22 @@ static kdbxo_result process_hdr(kdbx_header *hdr, uint8_t type, const char *data
         hdr->irs = (enum irs_type) (*(const int32_t *) data);
         break;
     case HDR_KDF_PARAMETERS:
-        // TODO
+        (void)0;
+        const void *uuid = NULL;
+        read_map(data, datasz, &uuid, kdfp_uuid);
+        if (!uuid) {
+            break;
+        }
+        if (!memcmp(uuid, KDF_ARGON2_UUID, 16)) {
+            hdr->kdf = KDF_ARGON2;
+            read_map(data, datasz, hdr, kdfp_argon2);
+        } else if (!memcmp(uuid, KDF_AES_UUID, 16)) {
+            hdr->kdf = KDF_AES;
+            read_map(data, datasz, hdr, kdfp_aes);
+        } else {
+            kdbxo_set_error("Invalid KDF");
+            return RESULT_ERR;
+        }
         break;
     case HDR_PUBLIC_CUSTOM_DATA:
     case HDR_COMMENT:
@@ -178,7 +326,7 @@ static kdbxo_result process_hdr(kdbx_header *hdr, uint8_t type, const char *data
 }
 
 static kdbxo_result validate_hdr(kdbx_header *hdr) {
-    FAIL_IF(!hdr->seed || !hdr->iv || !hdr->irs_key, "not enough data in process_hdr");
+    FAIL_IF(!hdr->seed || !hdr->iv, "missing header fields");
 
     switch (hdr->kdf) {
     case KDF_AES:
@@ -207,16 +355,6 @@ static kdbxo_result validate_hdr(kdbx_header *hdr) {
         return RESULT_ERR;
     }
 
-    switch (hdr->irs) {
-    case IRS_CHACHA20:
-    case IRS_SALSA20:
-        break;
-    case IRS_ARCFOURVARIANT: // not supported
-    default:
-        kdbxo_set_error("invalid IRS");
-        return RESULT_ERR;
-    }
-
     return RESULT_OK;
 }
 
@@ -227,7 +365,18 @@ static kdbxo_result apply_kdf(kdbx_header *hdr, char *key32) {
         FAIL_IF(hdr->kdf_params.aes.seed_sz != 32, "AESKDF seed size wrong");
         return kdbxo_aeskdf(hdr->kdf_params.aes.seed, key32, hdr->kdf_params.aes.rounds);
     case KDF_ARGON2:
-        return RESULT_ERR;
+        return kdbxo_argon2kdf(
+            (uint32_t) (hdr->kdf_params.argon2.iterations),
+            (uint32_t) (hdr->kdf_params.argon2.memory / 1024),
+            hdr->kdf_params.argon2.parallelism,
+            hdr->kdf_params.argon2.version,
+            key32,
+            hdr->kdf_params.argon2.salt,
+            hdr->kdf_params.argon2.salt_sz,
+            hdr->kdf_params.argon2.secret,
+            hdr->kdf_params.argon2.secret_sz,
+            hdr->kdf_params.argon2.ad,
+            hdr->kdf_params.argon2.ad_sz);
     default:
         kdbxo_set_error("invalid KDF");
         return RESULT_ERR;
@@ -317,6 +466,9 @@ fail:
 
 static size_t kdbx3(const char *in, const char *const end, const char *key32, void **outp) {
     kdbx_header hdr = { 0 };
+    const char *const file_start = in - sizeof(kdbx_magic);
+    // TODO compute header checksum to pass to XML side for verification
+    (void)file_start;
     while (1) {
         if (in + 3 > end) {
             return 0;
@@ -344,9 +496,12 @@ static size_t kdbx3(const char *in, const char *const end, const char *key32, vo
         kdbxo_set_error("stream start bytes missing");
         return 0;
     }
-
     if (hdr.ssb_sz != 32) {
         kdbxo_set_error("stream start bytes size invalid");
+        return 0;
+    }
+    if (!hdr.irs_key) {
+        kdbxo_set_error("IRS key missing");
         return 0;
     }
 
@@ -409,12 +564,74 @@ static size_t kdbx3(const char *in, const char *const end, const char *key32, vo
 }
 
 static size_t kdbx4(const char *in, const char *const end, const char *key32, void **outp) {
-    // TODO
-    (void) in; (void) end; (void) key32; (void) outp;
+    kdbx_header hdr = { 0 };
+    const char *const file_start = in - sizeof(kdbx_magic);
+    while (1) {
+        if (in + 5 > end) {
+            return 0;
+        }
+        uint8_t type = *(const uint8_t *) in;
+        size_t size = *(const uint32_t *) (in + 1);
+        if (in + 5 + size > end) {
+            return 0;
+        }
+        kdbxo_result r = process_hdr(&hdr, type, in + 5, size);
+        in += 5 + size;
+        if (r == RESULT_END) {
+            break;
+        } else if (r) {
+            return 0;
+        }
+    }
+
+    char crypto_key[32] = { 0 };
+    char hmac_key[64] = { 0 };
+    {
+        char transformed_key[32] = { 0 };
+        memcpy(transformed_key, key32, 32);
+        if (apply_kdf(&hdr, transformed_key) ||
+            kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key) ||
+            kdbxo_hmac_key(hdr.seed, transformed_key, hmac_key)) {
+            return 0;
+        }
+        memset(transformed_key, 0, 32);
+    }
+
+    if (in + 64 > end) {
+        kdbxo_set_error("unexpected EOF");
+        return 0;
+    }
+
+    {
+        char hdr_hash[32] = { 0 };
+        if (kdbxo_sha256(hdr_hash, file_start, in - file_start)) {
+            return 0;
+        }
+        if (memcmp(hdr_hash, in, 32)) {
+            kdbxo_set_error("header checksum mismatch");
+            return 0;
+        }
+        char hdr_hmac_key[64] = { 0 };
+        if (kdbxo_hmac_block_key(hdr_hmac_key, hmac_key, 64, 0xFFFFFFFFFFFFFFFFull) ||
+            kdbxo_hmacsha256(hdr_hmac_key, hdr_hash, file_start, in - file_start)) {
+            return 0;
+        }
+        if (memcmp(hdr_hash, in + 32, 32)) {
+            kdbxo_set_error("header HMAC mismatch");
+            return 0;
+        }
+        in += 64;
+    }
+
+    if (validate_hdr(&hdr)) {
+        return 0;
+    }
+
     return 0;
 }
 
 size_t kdbxo_unwrap(const char *in, size_t insz, const char *key32, void **outp) {
+    *outp = NULL;
     if (insz < sizeof(kdbx_magic)) {
         kdbxo_set_error("file too short");
         return 0;

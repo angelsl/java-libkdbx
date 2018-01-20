@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <sys/sysinfo.h>
 #include <pthread.h>
 #include <argon2.h>
 #include <tomcrypt.h>
@@ -114,8 +115,39 @@ kdbxo_result kdbxo_aeskdf(const void *seed32, void *key32, uint64_t rounds) {
     return RESULT_OK;
 }
 
-kdbxo_result kdbxo_argon2kdf(void) {
-    return RESULT_ERR;
+kdbxo_result kdbxo_argon2kdf(uint32_t iter, uint32_t mem, uint32_t lanes, uint32_t version,
+    void *key32,
+    const void *salt, uint32_t saltlen,
+    const void *secret, uint32_t secretlen,
+    const void *ad, uint32_t adlen) {
+    unsigned char out[32];
+    argon2_context a2ctx = {
+        .t_cost = iter,
+        .m_cost = mem,
+        .lanes = lanes,
+        .threads = get_nprocs(),
+        .version = version,
+        .out = out,
+        .outlen = 32,
+        .pwd = key32,
+        .salt = (void *) salt,
+        .saltlen = saltlen,
+        .pwdlen = 32,
+        .secret = (void *) secret,
+        .secretlen = secretlen,
+        .ad = (void *) ad,
+        .adlen = adlen,
+        .flags = 0
+    };
+    int result = argon2d_ctx(&a2ctx);
+    if (result != ARGON2_OK) {
+        kdbxo_set_error(argon2_error_message(result));
+        return RESULT_ERR;
+    }
+
+    memcpy(key32, out, 32);
+    memset(out, 0, 32);
+    return RESULT_OK;
 }
 
 typedef struct __attribute__((packed)) {
