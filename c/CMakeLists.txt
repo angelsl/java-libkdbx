@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.0)
 enable_language(C)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(ARGON2_SOURCES
     argon2/src/argon2.c
     argon2/src/core.c
@@ -115,12 +119,14 @@ set(KDBXOUTER_SOURCES
     src/format.c)
 add_library(kdbxouter SHARED ${KDBXOUTER_SOURCES})
 target_link_libraries(kdbxouter argon2 tomcrypt pthread z)
-target_compile_options(kdbxouter PRIVATE "-std=c11;-Og;-g;-Wall;-Wextra;-pedantic"
+target_compile_options(kdbxouter PRIVATE "-std=c11;-g;-Wall;-Wextra;-pedantic"
                                  PRIVATE "-pthread")
+target_compile_options(kdbxouter PRIVATE "$<$<CONFIG:Debug>:-Og>")
+target_compile_options(kdbxouter PRIVATE "$<$<CONFIG:Release>:-O3>")
 
-if(DEFINED KDBXOUTER_TEST)
+if(KDBXOUTER_TEST)
     add_executable(testkdbxouter test.c)
     target_link_libraries(testkdbxouter kdbxouter)
-    target_compile_options(testkdbxouter PRIVATE "-std=c11;-Og;-g;-Wall;-Wextra;-pedantic"
+    target_compile_options(testkdbxouter PRIVATE "-std=c11;-g;-Og;-Wall;-Wextra;-pedantic"
                                          PRIVATE "-pthread")
 endif()
