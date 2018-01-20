@@ -5,7 +5,7 @@
 #include <string.h>
 #include <zlib.h>
 
-const char *kdbxo_error = "no error";
+const char *kdbxo_error = NULL;
 
 typedef struct __attribute__((packed)) {
     uint64_t sig;
@@ -110,49 +110,39 @@ typedef struct {
     size_t ssb_sz;
 } kdbx_header;
 
-enum result {
-    RESULT_OK = 0,
-    RESULT_END = 1,
-    RESULT_ERR = -1
-};
-
-static enum result process_hdr(kdbx_header *hdr, uint8_t type, const char *data, size_t datasz) {
+static kdbxo_result process_hdr(kdbx_header *hdr, uint8_t type, const char *data, size_t datasz) {
     switch (type) {
     case HDR_CIPHER_ID:
-        if (datasz < 16) { kdbxo_error = "not enough data"; return RESULT_ERR; }
+        FAIL_IF(datasz < 16, "not enough data in process_hdr");
         if (!memcmp(CIPHER_AES_UUID, data, 16)) {
             hdr->cipher = CIPHER_AES;
         } else if (!memcmp(CIPHER_CHACHA20_UUID, data, 16)) {
             hdr->cipher = CIPHER_CHACHA20;
         } else {
-            kdbxo_error = "Invalid cipher";
+            kdbxo_set_error("Invalid cipher");
             return RESULT_ERR;
         }
         break;
     case HDR_COMPRESSION_FLAGS:
-        if (datasz < 4) { kdbxo_error = "not enough data"; return RESULT_ERR; }
+        FAIL_IF(datasz < 4, "not enough data in process_hdr");
         hdr->compression = (enum compression_type) (*(const int32_t *) data);
         break;
     case HDR_MASTER_SEED:
-        if (datasz < 32) { kdbxo_error = "not enough data"; return RESULT_ERR; }
+        FAIL_IF(datasz < 32, "not enough data in process_hdr");
         hdr->seed = data;
         hdr->seed_sz = datasz;
         break;
     case HDR_TRANSFORM_SEED:
-        if (hdr->kdf != KDF_ERR && hdr->kdf != KDF_AES) {
-            kdbxo_error = "AES transform seed in header but KDF is not AES";
-            return RESULT_ERR;
-        }
+        FAIL_IF(hdr->kdf != KDF_ERR && hdr->kdf != KDF_AES,
+            "AES transform seed in header but KDF is not AES");
         hdr->kdf = KDF_AES;
         hdr->kdf_params.aes.seed = data;
         hdr->kdf_params.aes.seed_sz = datasz;
         break;
     case HDR_TRANSFORM_ROUNDS:
-        if (datasz < 8) { kdbxo_error = "not enough data"; return RESULT_ERR; }
-        if ((hdr->kdf != KDF_ERR && hdr->kdf != KDF_AES)) {
-            kdbxo_error = "AES transform rounds in header but KDF is not AES";
-            return RESULT_ERR;
-        }
+        FAIL_IF(datasz < 8, "not enough data in process_hdr");
+        FAIL_IF(hdr->kdf != KDF_ERR && hdr->kdf != KDF_AES,
+            "AES transform rounds in header but KDF is not AES");
         hdr->kdf = KDF_AES;
         hdr->kdf_params.aes.rounds = *(const uint64_t *) data;
         break;
@@ -165,12 +155,12 @@ static enum result process_hdr(kdbx_header *hdr, uint8_t type, const char *data,
         hdr->irs_key_sz = datasz;
         break;
     case HDR_STREAM_START_BYTES:
-        if (datasz < 32) { kdbxo_error = "not enough data"; return RESULT_ERR; }
+        FAIL_IF(datasz < 32, "not enough data in process_hdr");
         hdr->ssb = data;
         hdr->ssb_sz = datasz;
         break;
     case HDR_IRS_ID:
-        if (datasz < 4) { kdbxo_error = "not enough data"; return RESULT_ERR; }
+        FAIL_IF(datasz < 4, "not enough data in process_hdr");
         hdr->irs = (enum irs_type) (*(const int32_t *) data);
         break;
     case HDR_KDF_PARAMETERS:
@@ -187,18 +177,15 @@ static enum result process_hdr(kdbx_header *hdr, uint8_t type, const char *data,
     return RESULT_OK;
 }
 
-static enum result validate_hdr(kdbx_header *hdr) {
-    if (!hdr->seed || !hdr->iv || !hdr->irs_key) {
-        kdbxo_error = "missing header field";
-        return RESULT_ERR;
-    }
+static kdbxo_result validate_hdr(kdbx_header *hdr) {
+    FAIL_IF(!hdr->seed || !hdr->iv || !hdr->irs_key, "not enough data in process_hdr");
 
     switch (hdr->kdf) {
     case KDF_AES:
     case KDF_ARGON2:
         break;
     default:
-        kdbxo_error = "invalid KDF";
+        kdbxo_set_error("invalid KDF");
         return RESULT_ERR;
     }
 
@@ -207,7 +194,7 @@ static enum result validate_hdr(kdbx_header *hdr) {
     case CIPHER_CHACHA20:
         break;
     default:
-        kdbxo_error = "invalid cipher";
+        kdbxo_set_error("invalid cipher");
         return RESULT_ERR;
     }
 
@@ -216,7 +203,7 @@ static enum result validate_hdr(kdbx_header *hdr) {
     case COMPRESSION_NONE:
         break;
     default:
-        kdbxo_error = "invalid compression";
+        kdbxo_set_error("invalid compression");
         return RESULT_ERR;
     }
 
@@ -226,67 +213,49 @@ static enum result validate_hdr(kdbx_header *hdr) {
         break;
     case IRS_ARCFOURVARIANT: // not supported
     default:
-        kdbxo_error = "invalid IRS";
+        kdbxo_set_error("invalid IRS");
         return RESULT_ERR;
     }
 
     return RESULT_OK;
 }
 
-static enum result apply_kdf(kdbx_header *hdr, char *key32) {
+static kdbxo_result apply_kdf(kdbx_header *hdr, char *key32) {
     switch (hdr->kdf) {
     case KDF_AES:
-        if (!hdr->kdf_params.aes.seed) {
-            kdbxo_error = "AES KDF seed missing";
-            return RESULT_ERR;
-        }
-        if (hdr->kdf_params.aes.seed_sz != 32) {
-            kdbxo_error = "AES KDF seed size wrong";
-            return RESULT_ERR;
-        }
-        kdbxo_aeskdf(hdr->kdf_params.aes.seed, key32, hdr->kdf_params.aes.rounds);
-        break;
+        FAIL_IF(!hdr->kdf_params.aes.seed, "AESKDF seed missing");
+        FAIL_IF(hdr->kdf_params.aes.seed_sz != 32, "AESKDF seed size wrong");
+        return kdbxo_aeskdf(hdr->kdf_params.aes.seed, key32, hdr->kdf_params.aes.rounds);
     case KDF_ARGON2:
-        break;
+        return RESULT_ERR;
     default:
-        kdbxo_error = "invalid KDF";
+        kdbxo_set_error("invalid KDF");
         return RESULT_ERR;
     }
-
-    return RESULT_OK;
 }
 
-static enum result apply_cipher(kdbx_header *hdr, char *key32, char *out, const char *in, size_t sz) {
+static kdbxo_result apply_cipher(kdbx_header *hdr, char *key32, char *out, const char *in, size_t sz) {
     switch (hdr->cipher) {
     case CIPHER_AES:
-        if (hdr->iv_sz != 16) {
-            kdbxo_error = "invalid IV length for AES";
-            return RESULT_ERR;
-        }
-        kdbxo_aes256cbc_d(key32, hdr->iv, out, in, sz);
-        break;
+        FAIL_IF(hdr->iv_sz != 16, "invalid IV length for AES");
+        return kdbxo_aes256cbc_d(key32, hdr->iv, out, in, sz);
     case CIPHER_CHACHA20:
+        FAIL_IF(hdr->iv_sz != 12, "invalid IV length for ChaCha20");
         if (hdr->iv_sz != 12) {
-            kdbxo_error = "invalid IV length for ChaCha20";
+            kdbxo_set_error("invalid IV length for ChaCha20");
             return RESULT_ERR;
         }
-        kdbxo_chacha20_d(key32, hdr->iv, out, in, sz);
-        break;
+        return kdbxo_chacha20_d(key32, hdr->iv, out, in, sz);
     default:
-        kdbxo_error = "invalid cipher";
+        kdbxo_set_error("invalid cipher");
         return RESULT_ERR;
     }
-
-    return RESULT_OK;
 }
 
 static size_t gunzip(const void *src, size_t srcsz, void **outp) {
     size_t outsz = srcsz * 2;
     unsigned char *out = malloc(outsz);
-    if (!out) {
-        kdbxo_error = "malloc failed in gunzip";
-        return 0;
-    }
+    FAIL_IF(!out, "malloc failed in gunzip");
 
     z_stream s = { 0 };
     s.avail_in = srcsz;
@@ -312,28 +281,25 @@ static size_t gunzip(const void *src, size_t srcsz, void **outp) {
             case Z_BUF_ERROR:
                 outsz *= 2;
                 void *out2 = realloc(out, outsz);
-                if (!out2) {
-                    kdbxo_error = "malloc failed in gunzip";
-                    goto fail;
-                }
+                FAIL_IF(!out2, "realloc failed in gunzip");
                 out = out2;
                 s.avail_out = outsz - s.total_out;
                 s.next_out = (Bytef *) (out + s.total_out);
                 break;
             case Z_STREAM_ERROR:
-                kdbxo_error = "zlib error (Z_STREAM_ERROR)";
+                kdbxo_set_error("zlib error (Z_STREAM_ERROR)");
                 goto fail;
             case Z_DATA_ERROR:
-                kdbxo_error = "zlib error (Z_DATA_ERROR)";
+                kdbxo_set_error("zlib error (Z_DATA_ERROR)");
                 goto fail;
             case Z_MEM_ERROR:
-                kdbxo_error = "zlib error (Z_MEM_ERROR)";
+                kdbxo_set_error("zlib error (Z_MEM_ERROR)");
                 goto fail;
             case Z_VERSION_ERROR:
-                kdbxo_error = "zlib error (Z_VERSION_ERROR)";
+                kdbxo_set_error("zlib error (Z_VERSION_ERROR)");
                 goto fail;
             default:
-                kdbxo_error = "unknown zlib error";
+                kdbxo_set_error("unknown zlib error");
                 goto fail;
             }
         }
@@ -360,27 +326,27 @@ static size_t kdbx3(const char *in, const char *const end, const char *key32, vo
         if (in + 3 + size > end) {
             return 0;
         }
-        enum result r = process_hdr(&hdr, type, in + 3, size);
+        kdbxo_result r = process_hdr(&hdr, type, in + 3, size);
         in += 3 + size;
         if (r == RESULT_END) {
             break;
-        } else if (r == RESULT_ERR) {
+        } else if (r) {
             return 0;
         }
     }
 
-    if (validate_hdr(&hdr) != RESULT_OK) {
+    if (validate_hdr(&hdr)) {
         return 0;
     }
 
     // kdbx3-specific header field
     if (!hdr.ssb) {
-        kdbxo_error = "stream start bytes missing";
+        kdbxo_set_error("stream start bytes missing");
         return 0;
     }
 
     if (hdr.ssb_sz != 32) {
-        kdbxo_error = "stream start bytes size invalid";
+        kdbxo_set_error("stream start bytes size invalid");
         return 0;
     }
 
@@ -388,29 +354,31 @@ static size_t kdbx3(const char *in, const char *const end, const char *key32, vo
     {
         char transformed_key[32] = { 0 };
         memcpy(transformed_key, key32, 32);
-        apply_kdf(&hdr, transformed_key);
-        kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key);
+        if (apply_kdf(&hdr, transformed_key) ||
+            kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key)) {
+            return 0;
+        }
         memset(transformed_key, 0, 32);
     }
 
     const size_t ptsz = end - in;
     char *const pt = malloc(ptsz);
     if (!pt) {
-        kdbxo_error = "malloc failed in kdbx3";
+        kdbxo_set_error("malloc failed in kdbx3");
         return 0;
     }
 
-    if (apply_cipher(&hdr, crypto_key, pt, in, ptsz) != RESULT_OK) {
+    if (apply_cipher(&hdr, crypto_key, pt, in, ptsz)) {
         memset(pt, 0, ptsz);
         free(pt);
-        kdbxo_error = "decryption failed; wrong key?";
+        kdbxo_set_error("decryption failed; wrong key?");
         return 0;
     }
 
     if (memcmp(pt, hdr.ssb, 32)) {
         memset(pt, 0, ptsz);
         free(pt);
-        kdbxo_error = "stream start bytes wrong; wrong key?";
+        kdbxo_set_error("stream start bytes wrong; wrong key?");
         return 0;
     }
 
@@ -419,7 +387,7 @@ static size_t kdbx3(const char *in, const char *const end, const char *key32, vo
     memset(pt, 0, ptsz);
     free(pt);
     if (!unhashedsz || !unhashed) {
-        kdbxo_error = "hashed block verification failed; wrong key?";
+        kdbxo_set_error("hashed block verification failed; wrong key?");
         return 0;
     }
 
@@ -448,19 +416,19 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, vo
 
 size_t kdbxo_unwrap(const char *in, size_t insz, const char *key32, void **outp) {
     if (insz < sizeof(kdbx_magic)) {
-        kdbxo_error = "file too short";
+        kdbxo_set_error("file too short");
         return 0;
     }
     const char *const end = in + insz;
 
     const kdbx_magic *hdr = (const kdbx_magic *) in;
     if (hdr->sig != KDBX_SIG) {
-        kdbxo_error = "invalid magic";
+        kdbxo_set_error("invalid magic");
         return 0;
     }
 
     if (hdr->ver_major < 2 || hdr->ver_major > 4) {
-        kdbxo_error = "unsupported version";
+        kdbxo_set_error("unsupported version");
         return 0;
     }
 
