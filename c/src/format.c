@@ -259,10 +259,18 @@ static enum result apply_kdf(kdbx_header *hdr, char *key32) {
 static enum result apply_cipher(kdbx_header *hdr, char *key32, char *out, const char *in, size_t sz) {
     switch (hdr->cipher) {
     case CIPHER_AES:
+        if (hdr->iv_sz != 16) {
+            kdbxo_error = "invalid IV length for AES";
+            return RESULT_ERR;
+        }
         kdbxo_aes256cbc_d(key32, hdr->iv, out, in, sz);
         break;
     case CIPHER_CHACHA20:
-        // TODO
+        if (hdr->iv_sz != 12) {
+            kdbxo_error = "invalid IV length for ChaCha20";
+            return RESULT_ERR;
+        }
+        kdbxo_chacha20_d(key32, hdr->iv, out, in, sz);
         break;
     default:
         kdbxo_error = "invalid cipher";
