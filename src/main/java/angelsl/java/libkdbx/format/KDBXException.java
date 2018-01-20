@@ -1,4 +1,4 @@
-package angelsl.java.libkdbx;
+package angelsl.java.libkdbx.format;
 
 public class KDBXException extends RuntimeException {
     public KDBXException(String message) {

@@ -1,14 +1,13 @@
-package angelsl.java.libkdbx.test;
+package angelsl.java.libkdbx.crypto;
 
-import angelsl.java.libkdbx.Crypto;
-import org.junit.Test;
+import angelsl.java.libkdbx.crypto.Crypto;
+import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 
-import static org.junit.Assert.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 public class CryptoTest {
-
     private static final byte[] _p1 = Base64.getDecoder().decode("EYAt/7shgc79zsYAp1TDJvlvxLqdjqQ7BayKBrLhD2UsVrt+G9miy68VwlJDcABzGGGIcYqSLIPb8voPlnscHL9g1FCZRAsfzfkLiMxS95SsF+1QWJ7bmSk3oijekzQz+KWS4puv2tNWaKSRhqS3ifplYn+Ny8QhhTonYaLiQTnE148mvxX5/Twa+vD5SRKFgBkueDG1pSzhcV1hiHkxcyZqzK8VkMnlbGVCc9HTJzsnoeGJs8gIDzFiRU63l3XD6YbJj31jcO9PSQvLcjJbDUohOeaXqMBeYr19skp7LdTwf4pLCZi+wzHxOWq8PJz/BzgEll6OK0HGayy/5b2k1Bs32/OnEASxY3W0pm5VoSUgfasSd5d2YVNJhZ5r/t50TGVPhWCpV/YzUjLo2oXScckGnmcRkl2EwHqgXotmRmSXQFkJBhzFdya03iRkjobNdhPUZF92YroHysXmCflrzQzOUJoryGqtQSdBXLM4IDLz0ud3kuIEId2fATtX3m4sSBEYlT3soq6pJiI4NAYGz6qS8jcS9Dsqyi+9i8cvVmK5FROhIIr1By85zWu/zO3WmDKQxOw3GlTW7ssOLhbmedC/fh/yZa8gneoH2CbPav5B5vOUnpJ2gvq/yzG/5tgZUlSb/03O5DODcCYCL0EtBoTMzEgjUts+SfskMpl9YLY=");
     private static final byte[] _k1 = Base64.getDecoder().decode("Ee6G0jRqsHMCvxEta3NSuJLErfIakPUAeF22UamxmQU=");
     private static final byte[] _p2 = Base64.getDecoder().decode("qGug1c9um4H4hVnXs1/JUCULHfqDEf038pTWwkqRv8uK4ag+EcQ1odRvSDUB+2W8jvU+NI/XUpduaOI7mNk3Z8aOTNK2iz5h1XwmE8nINvcuGTNUUos7so8R0Kjh+gn6OOBvcq6TBgK33V8TsT7OpTLrDX6m4hQ6UplDpbuWf9tyK9voWMNImxMwnXUrJwFQQip29uyLVFXLNCAUT2BHIF6DoYVj5k1uonJqdUWfDiqY8mKRH4nu59eFHCSjNEuz6XwWqIZ87VzcB1N6IN4PKyX1e139tQDUlLmt3ckpy24mt4zJiWakHAQGtBg2dMf5dfD+rbjutTN7QhPMzhCSszzkU2hSRqK+UF9Y9wHoniDytGfZKh22OAJYTUdT2E70cwDbUSBepy9NP11Ylr0yk6Py2RqpuIkfLhtm+flba3gRY4QADU0Akw04jOrAXaFEJrqjYP4zS7p3uyIE+K018dTkRzI5MoZW8kYMcCyeX9B5ItI/uAt63RjJiFEq+5tfApoW2xZvCvMzTW24J9qO2FxSitba9jnIamkZcKk0K/aqrW6RiIO6ChffC2qewrY+O7D02HHEhAthTnGsVppK/yF2DXlr/FDYl4C+++vOKqiz2jT5P1OF5ihiMDoSDrN9lQxJJ7Q80j5fHEDxBYggkiPJ+XtlUL/N8SdRCcwWxok=");
@@ -89,5 +88,29 @@ public class CryptoTest {
 
         assertArrayEquals(sha512out1, c.hash(Crypto.HASH_SHA512, _p1, 0, _p1.length));
         assertArrayEquals(sha512out2, c.hash(Crypto.HASH_SHA512, _p2, 0, _p2.length));
+    }
+
+    @Test
+    public void blake2bLongTest() {
+        byte[] b2blout1 = Base64.getDecoder().decode("+nrPkHalNVB/CWHj9cebHAnZ+uoYDb8BZ3/YTVx23uOZnXu8T6M+IKg5rosf5oq96SRdk3HWpEfK");
+        byte[] b2blout2 = Base64.getDecoder().decode("vM5/g3IQlLhSYnF5/BicSeNMaX+9AOBtdOxvGsOm3j01Ptx1UChuDsaQ7vr39VDgpnpEiTEd1+qaI9RCnlfT6A==");
+        byte[] b2blout3 = Base64.getDecoder().decode("ASqqMnTJdl8AVIxB4DBxnzcREBY4jXG+STxvku+XS2ZaNDgQkAcRqDQCEcOp4z5h8DRl2fJ56IheDU2sFlXlk/jFE6e4ebth6rc635d/fRdUgGZe3GSTvahX2LL+FpcKIt49QDnggBv4p0TlLn8XjdDedPK1iG6j9TOeBRVr/i/7g7eXGNs8wzOMOVTv243dx2GgxbfcIfjwPYOe9ivbZO0XgSOw6G1VVUKEIHbdqlJami2lZdXfMv+IoIOJ0MZz88DvBp+q2iF7+1i2zGS7hEx6BpmpHhv5dCuJzUkNpsegpKWtxCynRSfu4/m74MxvxtgHERzPNrm67Ocx4k1qBk7yYgxrWskSocQk7LuRMSj4VPDRSf3zhWWny5gNN5IPvZvnuCJUufdDlGHxTyzV4KEV9Jf4ZuQ6GPUGuHKTohOb8vZS6muUZCgprnDIfBxXEkIvkoswplwcRh7tedArKWOmyv+4z3/p8X1DlMn6f0XoEvzGSO0acqd26Qx09vg9PS40fTlLicELUnXt/px+fLQsKl0x0CqiSv3fQAMmtGzfTgnRsp6/eGyy2N2QBOiZ6BGKWfBD5U7X8QkFbj2YZm8l2kHmJ964OXykLiciOSexJNHnlqSbDvqmT56FHfcUbK6OFdPRlB0Tz5O0UP8AOpPnfilN96bRGHxeR4NM0w4KbOtOqSjUyJhaLO8W6XhbOSimZIU6yq0ZMEFaQWGuYlW2pPb0oHh1i2GNls8xyo2bdmHDy4u7vCKex5UQWbIAgz+jJeH2ZqJ64kKwvLgiGAG87liXrQwcXtNOYzAz253UNfKcq+pbXdLgRD6bJriW29YkODolvyvhOucKsD1SBOmFTCbXTXlPqQTwagGyWMtE3uhHP+2AtcHUd70DHU11HUnBQzMuDfEqvJkGKkVz1Ffi4yFa89TY4wVHKdhBWftAGRfDe4BcEFNXCWgxWBRikfI3sSrm7lI/VsmTeGYANkCXE39gxpfNhRrmqAXrNQs9LYVZHxR4EJsAnZQa7OFSdy/RBoWWkoWowArZCab6EjmhSejIklvWIPkBRNNONHqikoiXzhVfiN80arU7ShmtyejomJyvfkSktWpAs6TWpWbRZVaqX+WpTPqTKeDAV50tAo1L8sOPaJ5e45OIg+wRW8cyEKeEyBGQ5YiiiASNi9SmWa5dnH/RjagX2iSnHeM0DI/ubPm86So5pssXQ5ne4X8zTIhQIA4g5dNqmGM1pGjmP+w8FRmNfM1rlvVQ2ofoXGUHa39HE9aGCM+HRg2WMDvcGGlkTWxL8woT5kur+wmJo5Cca/j7k/Vmr8SIbdVZG317IGzrCbSeqNHIvwVEiqLt0BaBZFFgSp3K5s8hFqsTKot5LEX269JEkbfmfYLs87vckwtsG2b+FoxyKcxzYNcJ+gNpGmEtiVmGGNKf84g6Sadb5ahNi78kB3yFTAyTpzLvq84FLPMVb/v3gASup30RlJ0YvgE9ZYrBnT9H400JBEufVKioWCik+7injJk0xEaDg/oy4qKqHI7j7Psvl5nYr9R0CqDViaItPCsHS2gFb1FuvPbd2Bt58tYeWx8HgOKzO9kMOghCvruZCKU+sAw9RStidsDhxmqUmY8DOgbx73HxP6Q6lv/G0LMQM8oMbU9FbuZdMw0fHBNHZRWz90gDNCgPtdp6zvQpjOPkCmkr7rMc6IJj+M6Tt+LEbsSo0xq2AyXhwkegUQO9PS1G5Fc+fcCFrD6S2zDWqwX67Iy4DkFjcse/ufz3cyYWGxwPOVa7ZoW1et2gTqinerxYbaeGFMcYFxmZ55qpG4nrIXbU4RrM8wSg+djndbDxZltZsxONLIUBZOVsmBhYaqcVdKqGUwnc55/ujuFET3jlNbf0kqkY+lbC3nWy0m7HNtmEDHrao4TLNwnbVzlsCLgBmDhwRfVk/FTqb9WB8UIGMiYIaU1fwvVXv4yRddm6dBjzkq+4CV3u0EWdE8gC5A6/NMTMLDXHw2xrzoENnw1/oYRiX9qluGw0/vxGpTt6fMG5y1ZuD6Q25FzVQKEJUIJVFP+Z1XCIiwnR+NQw05xl3Nd7ah+/whHwDGemAavC54F+w3S0Pl6y1YaD3A4UyH5knFuJcFtZQD5gEaZwQYk97OwO9a9i6nOW4FDpfs/csTePceOHx9korYohyXQCQPFC74OPhmt1SUaIoViO/MJEHoOhsgCtQa+zbpco5X3QwHnx8u/8bpttaSta1H9Xgpvo4q+xld1mU7PoJySgJYQvdXFjnQXYYrZWHMGwvIIEXzzlOrZ/81maWkekUmvzjLNYNkrII/72PQTchtjh6iqH4CGaWUzBaSWKEL1dQPaRLkwRVb6JtTOTGLlQbtl7cQ4baQKASsG9+oKOerFg/whaBRxXJtbL5mhyXsAA1zH0eItARzLv9L7pz23pnAHAf9WwtfWplJuuoKYQ6cVu+Q2Jn2IzGrA4P3k8/fi2RIjCVCatQfFwY6ir5GpnU/bCjtiNPXlZ3Pvc5kcN9jNrJ5gLE5ZELWQNmENCKBrdXFjHsBWW7KtQPokZyoZi1HyTDbiAv+v5I6JJLLGOsf8YdnDF1z23maLAtRqbFbnyva4FLdArdVB+MjgPGLFfRAybs3tG/l8st21j7L+XvxRYC4WnYB3jF6y/K5KkKxKHcsMbyM7Nrt+H+wLrFt8uBh6QLXYInKxuUZUs3hLuQIgoZj6s7V7A72NEve6DkqA0Xd5SC0SXoTETyFHbknpR67mXmkXEDs/iXhtMDHNKYo7KpM4bHvZtHf9+/t6t0Z6XmslTH89hrg7uAzxB8QqLy4hLFo1BOwxzZFc3XIZchONL+xBl6JXv4dgv4o5J4v1rD7Zy9C2Nobu0LQq7i4dmVrIzQX0Y+Ly4KnuvDhIFERKTbnRaGtZJ1rpIWhAzd51MpBQr0sZ/sAN8qQmi4J1JPGgHvikGP73LlP/oH+1X6FHgEk+4el8SUoc7292/z4Flw+QgfG/nuE/5HOxx3HJ0f5V5XXg854OKBdu9LHy2SFvY+w8Bl7uoTIIwoHNmxXe6kEnLSgkJghyuAtmhdQLBIyjjngO1Ps7cL6QhGzC5QO1ycSjV2VQUBh3fpducfwNKeiPwoO6QDant2TnKRrVLCb3rCpPF67zJ+Au3yQMmaq3rEBcTpoT4ZGwojcP0uJqZVu4Tzm6F83mVp7Pni/ZlNrApi5DUuQ==");
+        byte[] b2blout4 = Base64.getDecoder().decode("4ysShcdpZWq+op6TuvD4AF3h4W2es9QqfIaCagYgdooz+oPfewofBIt1aEOviKGs+K00BwCWJ61TyzaCjWU9iImgM2Id0gxcV3oibZ2ZknoZveLHF+XrI46gm5oRJO7wr6NxrqWk1rHFF4W3L1VS3vHOtnIQUqTbKuKOvJICX14oImx4Wwxg19VfRclWuyDzli7o77oQggWE0bdDbs83QqmwVNbgtpxpOEHLXZJbEBVfgXM8fnl7uHe9TKWxUiOvXvj4p/0nffqnmGfqxvEte2YUOUBkfqnlKlx2mFVF+XJcnK5dDr9uVDpjAA+wqUTidcJoNeHKqrGrx70xCfUYg3U115eoAhEVsBOaw/W7Ev9GebpwNCP9ejwMqAucJQS+T14yTfGA4FPLcVJB2dC/sSUW8BROqdmD/nutkITE/0Pv1HIBE8WfOHbHWQHV2u+jweEdP+tpk4fv43cmWcWJHAnYoLxA6RBbbUU6O9tCCDMMGKhzx3+nvtVv3T2+uAJBQ8+XjtMvDu79vqrYl1X9/Mb0qZNF57qdUQby+NiKtiwTeDeZdfpQzjtM3JCZgyzbzZAUyx/Tvc7e+9K+cZDkbisY+ia9CyDRC3SZGGxgAxTvKe4StWDX5n/74F5Rbu4yXr8S98/NKZ4FKfGSYwID+TP/Q61sdC6iPllNmD104HrNjq9vKCROsa9KPkAGRbrSkGFKfTGy7xe3Niv8pNV5yCc0R10WGyKWX3So57X4LfhxpcNnwBwpAR4kli2GT2UM1zPFHeHZobbk7WV14Yx2McI4UFEjS0+KdE57xL+1GybZyoNMwbin6jKxXQmtjjTmeSU1JWfSOMOSnlTMJWEopWNFvDzdeguFTl7CkHaLYRq+DT2B0vInu31K6Qbspm+G3svAsEb3CM8XTjWZgsGkDggdWEjrjg45ud9ZbAaSrnZlQbk91ZznfN8XkGc9yO4t9a5Qvbzosl4Zo8KW64vMqneUD/pgl34MpKEtwsT02g+L5utDSLY35LxCDtPpAWJIYYoVyAko/toE7I4u5WZz5ka6YANzjIM5sNgUB97YLRSkuycvJMBB7sLuMN02cICyf7k1UiiMtUZ+zP+Jv7D3VLd6ZX5nPY586j1poBfQK2AKBwtjJrb4YBzqbHRhQZDs07KW6cQSErwDn7ucjycMYOFRGcX6TUrMmSs/BDe4jEM2wFemPC0ltzgONvEEvzJPtO4b9MGxKx/k/sSduerx7HX3XlAYQIc+Va6PSqLz3h/aGZmxhx3FqKYLxfhXxHHiqRMhC2BO2+RhAuouzE1dfXJjWtVEnp7QnWPCuG75qmTRxHCxN6eX1bcN4FLrCIKlxhLP6jV9WYA0+NyrO6g1WQ==");
+
+        assertArrayEquals(b2blout1, c.blake2bLong(_p1, 0, _p1.length, null, 0, 57));
+        assertArrayEquals(b2blout2, c.blake2bLong(_p2, 0, _p2.length, null, 0, 64));
+        assertArrayEquals(b2blout3, c.blake2bLong(_p2, 0, _p2.length, null, 0, 2401));
+        assertArrayEquals(b2blout4, c.blake2bLong(_p1, 0, _p1.length, null, 0, 1024));
+    }
+
+    @Test
+    public void argon2dTest() {
+        // outlen = 117, pwd = _p1, salt = _p2, t_cost = 1, m_cost = 32, lanes = 1, version = 0x13
+        byte[] a2dout1 = Base64.getDecoder().decode("pSnWxFB4eUtlYzvwC87Lp/c7yoYjV6VzLu4lWMXW+efYG9a6XqP7gIbw6ZlbtrNYtnP3y+ZturIz9Upg6U9Ox95h8bLY8kP0L/uaIhhoUeZIZ5nyW0KiAEAl1Geyb7gN8cWzQTmW3FBND53uR4Uw+gIuohCt");
+        // outlen = 512, pwd = _p1, salt = _p2, t_cost = 4, m_cost = 16, lanes = 2, version = 0x13
+        byte[] a2dout2 = Base64.getDecoder().decode("T24HzOHl3ALRE1/R06Ynoq+DFcjNEKq4X8weIoUeI/XNVju/EKhAVaPclGBnXmEGcUuaSliUEFsWTXWBByuStFtxdfG/M/OJxf/3/q9I7B7ioU029jRQFGUm5GZth1C6X5F5NGmBh+ZJlowIE0VjsPAh1KH6");
+
+        // assertArrayEquals(a2dout1, c.argon2d(1, 32, 1, 117, _p1, _p2, null, null, 0x13));
+        assertArrayEquals(a2dout2, c.argon2d(4, 16, 2, 512, _p1, _p2, null, null, 0x13));
     }
 }
