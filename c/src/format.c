@@ -401,6 +401,15 @@ static kdbxo_result apply_cipher(kdbx_header *hdr, char *key32, char *out, const
     }
 }
 
+static uint8_t count_padding(kdbx_header *hdr, const void *data, size_t datasz) {
+    switch (hdr->cipher) {
+    case CIPHER_AES:
+        return kdbxo_count_pkcs7(data, datasz);
+    default:
+        return 0;
+    }
+}
+
 static size_t gunzip(const void *src, size_t srcsz, void **outp) {
     size_t outsz = srcsz * 2;
     unsigned char *out = malloc(outsz);
@@ -503,16 +512,18 @@ static kdbxo_result kdbx3(const char *in, const char *const end, const char *key
         memset(transformed_key, 0, 32);
     }
 
-    const size_t ptsz = end - in;
-    char *const pt = malloc(ptsz);
+    const size_t padded_ptsz = end - in;
+    char *const pt = malloc(padded_ptsz);
     FAIL_IF(!pt, "malloc failed in kdbx3");
 
-    if (apply_cipher(&hdr, crypto_key, pt, in, ptsz)) {
-        memset(pt, 0, ptsz);
+    if (apply_cipher(&hdr, crypto_key, pt, in, padded_ptsz)) {
+        memset(pt, 0, padded_ptsz);
         free(pt);
         kdbxo_set_error("decryption failed; wrong key?");
         return RESULT_ERR;
     }
+
+    const size_t ptsz = padded_ptsz - count_padding(&hdr, pt, padded_ptsz);
 
     if (memcmp(pt, hdr.ssb, 32)) {
         memset(pt, 0, ptsz);
@@ -550,6 +561,7 @@ static kdbxo_result kdbx3(const char *in, const char *const end, const char *key
     rr->irs_key = hdr.irs_key;
     rr->irs_key_sz = hdr.irs_key_sz;
     rr->to_free = xml;
+    rr->binarysz = 0;
 
     *outp = rr;
     return RESULT_OK;
@@ -670,28 +682,30 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
 
     size_t hmacsz = end - in;
     void *unhmac = NULL;
-    size_t unhmacsz = kdbxo_hmacblock_d(in, hmacsz, hmac_key, &unhmac);
+    const size_t padded_unhmacsz = kdbxo_hmacblock_d(in, hmacsz, hmac_key, &unhmac);
     in = NULL; // shouldn't be derefing in after this
-    if (!unhmacsz || !unhmac) {
+    if (!padded_unhmacsz || !unhmac) {
         kdbxo_set_error("HMAC block verification failed; wrong key?");
         goto fail;
     }
     memset(hmac_key, 0, 32);
 
-    char *pt = malloc(unhmacsz);
+    char *pt = malloc(padded_unhmacsz);
     if (!pt) {
         free(unhmac);
         kdbxo_set_error("malloc failed in kdbx4");
         goto fail;
     }
 
-    if (apply_cipher(&hdr, crypto_key, pt, unhmac, unhmacsz)) {
-        memset(pt, 0, unhmacsz);
+    if (apply_cipher(&hdr, crypto_key, pt, unhmac, padded_unhmacsz)) {
+        memset(pt, 0, padded_unhmacsz);
         free(pt);
         kdbxo_set_error("decryption failed; wrong key?");
         goto fail;
     }
     free(unhmac); // no need to zero, this is still encrypted
+
+    const size_t unhmacsz = padded_unhmacsz - count_padding(&hdr, pt, padded_unhmacsz);
 
     size_t ptsz;
     if (hdr.compression == COMPRESSION_GZIP) {
@@ -734,6 +748,9 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
     rr->xml = xml;
     rr->xmlsz = xmlsz;
     rr->binarysz = binsz;
+    rr->irs = hdr.irs;
+    rr->irs_key = hdr.irs_key;
+    rr->irs_key_sz = hdr.irs_key_sz;
     rr->to_free = pt;
     *outp = rr;
     return RESULT_OK;

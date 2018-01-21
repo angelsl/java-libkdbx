@@ -57,6 +57,18 @@ kdbxo_result kdbxo_aes256cbc_d(const void *key32, const void *iv16, void *dest, 
     return RESULT_OK;
 }
 
+uint8_t kdbxo_count_pkcs7(const void *src, size_t srcsz) {
+    if (srcsz == 0 || !src) { return 0; }
+    const uint8_t *cur = src;
+    const uint8_t n = cur[srcsz - 1];
+    if (n > srcsz) { return 0; }
+    cur += srcsz - n;
+    for (size_t i = 0; i < n; ++i) {
+        if (cur[i] != n) { return 0; }
+    }
+    return n;
+}
+
 kdbxo_result kdbxo_chacha20_d(const void *key32, const void *iv12, void *dest, const void *src, size_t srcsz) {
     chacha_state st = { 0 };
     CHECK_OK(chacha_setup(&st, key32, 32, 0), "ChaCha20 init failed");

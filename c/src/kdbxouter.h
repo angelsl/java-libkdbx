@@ -42,6 +42,7 @@ extern kdbxo_result kdbxo_sha256(void *dest32, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_sha512(void *dest64, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_hmacsha256(const void *key64, void *dest32, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_aes256cbc_d(const void *key32, const void *iv16, void *dest, const void *src, size_t srcsz);
+extern uint8_t kdbxo_count_pkcs7(const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_chacha20_d(const void *key32, const void *iv12, void *dest, const void *src, size_t srcsz);
 extern kdbxo_result kdbxo_aeskdf(const void *seed32, void *key32, size_t rounds);
 extern kdbxo_result kdbxo_argon2kdf(uint32_t iter, uint32_t mem, uint32_t lanes, uint32_t version,
