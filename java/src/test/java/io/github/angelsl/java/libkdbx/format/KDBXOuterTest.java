@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.UnsupportedEncodingException;
 
+import static io.github.angelsl.java.libkdbx.TestUtil.unb64;
+
 public class KDBXOuterTest {
     private static String[] _testFiles = {
             "kdbx3_aes_gzip_binary.kdbx",
@@ -38,7 +40,7 @@ public class KDBXOuterTest {
         for (String file : _testFiles) {
             byte[] data = TestUtil.getResource(file);
             KDBXOuter result = KDBXOuter.parse(data, _aaaaa);
-            Assertions.assertEquals(result.getXML(), "");
+            Assertions.assertEquals(result.getXML(), new String(unb64(TestUtil.getResource(file + ".xml.base64")), "UTF-8"));
         }
     }
 }
