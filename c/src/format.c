@@ -517,11 +517,13 @@ static kdbxo_result kdbx3(const char *in, const char *const end, const char *key
     FAIL_IF(!pt, "malloc failed in kdbx3");
 
     if (apply_cipher(&hdr, crypto_key, pt, in, padded_ptsz)) {
+        ZERO_ARRAY(crypto_key);
         memset(pt, 0, padded_ptsz);
         free(pt);
         kdbxo_set_error("decryption failed; wrong key?");
         return RESULT_ERR;
     }
+    ZERO_ARRAY(crypto_key);
 
     const size_t ptsz = padded_ptsz - count_padding(&hdr, pt, padded_ptsz);
 
@@ -562,7 +564,7 @@ static kdbxo_result kdbx3(const char *in, const char *const end, const char *key
     rr->irs_key_sz = hdr.irs_key_sz;
     rr->to_free = xml;
     rr->binarysz = 0;
-
+    memset(&hdr, 0, sizeof(hdr));
     *outp = rr;
     return RESULT_OK;
 }
@@ -705,6 +707,7 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
         kdbxo_set_error("decryption failed; wrong key?");
         goto fail;
     }
+    ZERO_ARRAY(crypto_key);
     free(unhmac); // no need to zero, this is still encrypted
 
     const size_t unhmacsz = padded_unhmacsz - count_padding(&hdr, pt, padded_unhmacsz);
@@ -755,11 +758,14 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
     rr->irs_key_sz = hdr.irs_key_sz;
     rr->to_free = pt;
     *outp = rr;
+    memset(&hdr, 0, sizeof(hdr));
+    memset(ihdr, 0, xml - ihdr);
     return RESULT_OK;
 failpt:
     memset(pt, 0, ptsz);
     free(pt);
 fail:
+    memset(&hdr, 0, sizeof(hdr));
     ZERO_ARRAY(crypto_key);
     ZERO_ARRAY(hmac_key);
     return RESULT_ERR;
@@ -784,6 +790,8 @@ kdbxo_result kdbxo_unwrap(const char *in, size_t insz, const char *key32, kdbxo_
 
 void kdbxo_free_read_result(kdbxo_read_result *rr) {
     if (!rr) { return; }
+    memset(rr->xml, 0, rr->xmlsz);
     if (rr->to_free) { free(rr->to_free); }
+    memset(rr, 0, sizeof(kdbxo_read_result) + rr->binarysz*sizeof(kdbxo_binary));
     free(rr);
 }
