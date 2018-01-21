@@ -105,6 +105,7 @@ JNIEXPORT void JNICALL Java_io_github_angelsl_java_libkdbx_format_KDBXOuter_init
 JNIEXPORT jobject JNICALL Java_io_github_angelsl_java_libkdbx_format_KDBXOuter_parseNative(JNIEnv *, jclass, jbyteArray, jbyteArray);
 JNIEXPORT jobject JNICALL Java_io_github_angelsl_java_libkdbx_format_KDBXOuter_parseNative
     (JNIEnv *jenv, jclass cls, jbyteArray jin, jbyteArray jkey32) {
+    (void) cls;
     kdbxo_read_result *rr = NULL;
 
     size_t insz = (*jenv)->GetArrayLength(jenv, jin);
