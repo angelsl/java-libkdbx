@@ -5,6 +5,7 @@
 #define KDBXOUTER_H
 #define KDBX_SIG 0xB54BFB679AA2D903llu
 #define FAIL_IF(cond, err) do { if (cond) { kdbxo_set_error(err); return RESULT_ERR; } } while ((void)0, 0)
+#define ZERO_ARRAY(arr) memset((arr), 0, sizeof(arr))
 
 typedef enum {
     RESULT_OK = 0,

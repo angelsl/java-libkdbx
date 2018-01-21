@@ -509,7 +509,7 @@ static kdbxo_result kdbx3(const char *in, const char *const end, const char *key
         memcpy(transformed_key, key32, 32);
         FAIL_IF(apply_kdf(&hdr, transformed_key) ||
                 kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key), NULL);
-        memset(transformed_key, 0, 32);
+        ZERO_ARRAY(transformed_key);
     }
 
     const size_t padded_ptsz = end - in;
@@ -653,7 +653,7 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
         int fail = apply_kdf(&hdr, transformed_key) ||
             kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key) ||
             kdbxo_hmac_key(hdr.seed, transformed_key, hmac_key);
-        memset(transformed_key, 0, 32);
+        ZERO_ARRAY(transformed_key);
         if (fail) {
             goto fail;
         }
@@ -662,14 +662,19 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
     {
         char hdr_hmac[32] = { 0 };
         char hdr_hmac_key[64] = { 0 };
-        if (kdbxo_hmac_block_key(hdr_hmac_key, hmac_key, 64, 0xFFFFFFFFFFFFFFFFull) ||
-            kdbxo_hmacsha256(hdr_hmac_key, hdr_hmac, file_start, in - file_start)) {
+        int fail = kdbxo_hmac_block_key(hdr_hmac_key, hmac_key, 64, 0xFFFFFFFFFFFFFFFFull) ||
+            kdbxo_hmacsha256(hdr_hmac_key, hdr_hmac, file_start, in - file_start);
+        ZERO_ARRAY(hdr_hmac_key);
+        if (fail) {
             goto fail;
         }
-        if (memcmp(hdr_hmac, in + 32, 32)) {
+        fail = memcmp(hdr_hmac, in + 32, 32);
+        ZERO_ARRAY(hdr_hmac);
+        if (fail) {
             kdbxo_set_error("header HMAC mismatch");
             goto fail;
         }
+
         in += 64;
     }
 
@@ -685,7 +690,7 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
         kdbxo_set_error("HMAC block verification failed; wrong key?");
         goto fail;
     }
-    memset(hmac_key, 0, 32);
+    ZERO_ARRAY(hmac_key);
 
     char *pt = malloc(padded_unhmacsz);
     if (!pt) {
@@ -755,8 +760,8 @@ failpt:
     memset(pt, 0, ptsz);
     free(pt);
 fail:
-    memset(crypto_key, 0, 32);
-    memset(hmac_key, 0, 32);
+    ZERO_ARRAY(crypto_key);
+    ZERO_ARRAY(hmac_key);
     return RESULT_ERR;
 }
 

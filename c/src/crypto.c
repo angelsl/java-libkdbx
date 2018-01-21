@@ -158,7 +158,7 @@ kdbxo_result kdbxo_argon2kdf(uint32_t iter, uint32_t mem, uint32_t lanes, uint32
     }
 
     memcpy(key32, out, 32);
-    memset(out, 0, 32);
+    ZERO_ARRAY(out);
     return RESULT_OK;
 }
 
@@ -329,9 +329,13 @@ size_t kdbxo_hmacblock_d(const void *const src, size_t srcsz, const void *key64,
         ++index;
     }
 
+    ZERO_ARRAY(hmac_buf);
+    ZERO_ARRAY(hmac_key);
     *outp = out;
     return outsz;
 fail:
+    ZERO_ARRAY(hmac_buf);
+    ZERO_ARRAY(hmac_key);
     free(out);
     *outp = NULL;
     return 0;
