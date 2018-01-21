@@ -636,6 +636,15 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
         FAIL_IF(r, NULL);
     }
 
+    FAIL_IF(in + 64 > end, "unexpected EOF");
+
+    // check plaintext hash before we do anything else
+    {
+        char hdr_hash[32] = { 0 };
+        FAIL_IF(kdbxo_sha256(hdr_hash, file_start, in - file_start), NULL);
+        FAIL_IF(memcmp(hdr_hash, in, 32), "header checksum mismatch");
+    }
+
     char crypto_key[32] = { 0 };
     char hmac_key[64] = { 0 };
     {
@@ -650,26 +659,14 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
         }
     }
 
-    if (in + 64 > end) {
-        kdbxo_set_error("unexpected EOF");
-        goto fail;
-    }
-
     {
-        char hdr_hash[32] = { 0 };
-        if (kdbxo_sha256(hdr_hash, file_start, in - file_start)) {
-            goto fail;
-        }
-        if (memcmp(hdr_hash, in, 32)) {
-            kdbxo_set_error("header checksum mismatch");
-            goto fail;
-        }
+        char hdr_hmac[32] = { 0 };
         char hdr_hmac_key[64] = { 0 };
         if (kdbxo_hmac_block_key(hdr_hmac_key, hmac_key, 64, 0xFFFFFFFFFFFFFFFFull) ||
-            kdbxo_hmacsha256(hdr_hmac_key, hdr_hash, file_start, in - file_start)) {
+            kdbxo_hmacsha256(hdr_hmac_key, hdr_hmac, file_start, in - file_start)) {
             goto fail;
         }
-        if (memcmp(hdr_hash, in + 32, 32)) {
+        if (memcmp(hdr_hmac, in + 32, 32)) {
             kdbxo_set_error("header HMAC mismatch");
             goto fail;
         }
