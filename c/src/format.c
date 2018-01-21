@@ -790,7 +790,9 @@ kdbxo_result kdbxo_unwrap(const char *in, size_t insz, const char *key32, kdbxo_
 
 void kdbxo_free_read_result(kdbxo_read_result *rr) {
     if (!rr) { return; }
-    memset(rr->xml, 0, rr->xmlsz);
+    // rr->xml is always in malloc'd memory (so RW), but the user doesn't
+    // need to know that
+    memset((char *) rr->xml, 0, rr->xmlsz);
     if (rr->to_free) { free(rr->to_free); }
     memset(rr, 0, sizeof(kdbxo_read_result) + rr->binarysz*sizeof(kdbxo_binary));
     free(rr);
