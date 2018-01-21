@@ -16,7 +16,7 @@ static void printhex(const void *in, size_t sz) {
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
-        printf("usage: %s <file> <key>\n", argv[0]);
+        fprintf(stderr, "usage: %s <file> <key>\n", argv[0]);
         return 1;
     }
 
@@ -27,13 +27,13 @@ int main(int argc, char *argv[]) {
 
     void *data = malloc(fsz);
     if (!data) {
-        printf("malloc failed\n");
+        fprintf(stderr, "malloc failed\n");
         fclose(f);
         return 1;
     }
 
     if (fread(data, 1, fsz, f) != fsz) {
-        printf("fread failed\n");
+        fprintf(stderr, "fread failed\n");
         fclose(f);
         return 1;
     }
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
     char key[32];
     if (kdbxo_crypto_init()) {
-        printf("kdbxo_init failed\n");
+        fprintf(stderr, "kdbxo_init failed\n");
         return 1;
     }
     kdbxo_sha256(key, argv[2], strlen(argv[2]));
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     kdbxo_read_result *rr;
     kdbxo_result res = kdbxo_unwrap(data, fsz, key, &rr);
     if (res) {
-        printf("failed: %s\n", kdbxo_error ? kdbxo_error : "no error");
+        fprintf(stderr, "failed: %s\n", kdbxo_error ? kdbxo_error : "no error");
         return 1;
     }
 
