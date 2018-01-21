@@ -38,13 +38,15 @@ int main(int argc, char *argv[]) {
     kdbxo_sha256(key, argv[2], strlen(argv[2]));
     kdbxo_sha256(key, key, 32);
 
-    void *res;
-    size_t ressz = kdbxo_unwrap(data, fsz, key, &res);
-    if (!res || !ressz) {
+    kdbxo_read_result *rr;
+    kdbxo_result res = kdbxo_unwrap(data, fsz, key, &rr);
+    if (res) {
         printf("failed: %s\n", kdbxo_error ? kdbxo_error : "no error");
         return 1;
     }
 
-    fwrite(res, 1, ressz, stdout);
+    fwrite(rr->xml, 1, rr->xmlsz, stdout);
+    kdbxo_free_read_result(rr);
+    free(data);
     return 0;
 }

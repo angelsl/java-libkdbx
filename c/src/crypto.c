@@ -230,9 +230,98 @@ fail:
     return 0;
 }
 
-size_t kdbxo_hmacblock_d(const void *src, size_t srcsz, void **outp) {
-    (void) src; (void) srcsz; (void) outp;
-    // TODO
+typedef struct __attribute__((packed)) {
+    unsigned char hmac[32];
+    int32_t length;
+    unsigned char data[];
+} hmacblock_header;
+_Static_assert(sizeof(hmacblock_header) == 36, "HMAC block stream header size should be 36");
+
+size_t kdbxo_hmacblock_d(const void *const src, size_t srcsz, const void *key64, void **outp) {
+    /*
+    hmacBlock
+    [byte[32] hmac = hmac256(sha512(ulongindex || key), ulongindex || len || data)]
+    [int len]
+    [byte[len] data]
+    hmacBlockStream
+    [hmacBlock... blocks]
+    [hmacBlock {len = 0} lastblock]
+    */
+    const unsigned char *cur = src;
+    const unsigned char *end = cur + srcsz;
+    size_t outsz = 0;
+    unsigned char *out = malloc(srcsz);
+    if (!out) {
+        kdbxo_set_error("malloc failed while decoding HMAC block stream");
+        return 0;
+    }
+
+    unsigned char hmac_buf[32];
+    unsigned char hmac_key[64];
+    unsigned long hmac_len = 32;
+    hmac_state st = { 0 };
+    size_t index = 0;
+    while (1) {
+        if (cur + sizeof(hmacblock_header) > end) {
+            kdbxo_set_error("unexpected EOF while decoding HMAC block stream");
+            goto fail;
+        }
+        const hmacblock_header *hdr = (const hmacblock_header *) cur;
+        if (cur + sizeof(hmacblock_header) + hdr->length > end ||
+            outsz + hdr->length > srcsz) {
+            kdbxo_set_error("unexpected EOF while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (kdbxo_hmac_block_key(hmac_key, key64, 64, index)) {
+            goto fail;
+        }
+
+        if (hmac_init(&st, sha256_id, hmac_key, 64) != CRYPT_OK) {
+            kdbxo_set_error("HMAC init failed while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (hmac_process(&st, (void *) &index, sizeof(index)) != CRYPT_OK) {
+            kdbxo_set_error("HMAC process (1) failed while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (hmac_process(&st, (void *) &hdr->length, hdr->length + sizeof(hdr->length)) != CRYPT_OK) {
+            kdbxo_set_error("HMAC process (2) failed while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (hmac_done(&st, hmac_buf, &hmac_len) != CRYPT_OK) {
+            kdbxo_set_error("HMAC termination failed while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (hmac_len != 32) {
+            kdbxo_set_error("HMAC compute failed while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (memcmp(hmac_buf, hdr->hmac, 32)) {
+            kdbxo_set_error("HMAC mismatch while decoding HMAC block stream");
+            goto fail;
+        }
+
+        if (hdr->length == 0) {
+            break;
+        }
+
+        memcpy(out + outsz, hdr->data, hdr->length);
+        outsz += hdr->length;
+        cur += sizeof(hmacblock_header) + hdr->length;
+        ++index;
+    }
+
+    *outp = out;
+    return outsz;
+fail:
+    free(out);
+    *outp = NULL;
     return 0;
 }
 

@@ -30,16 +30,16 @@ enum header_field_type {
     HDR_PUBLIC_CUSTOM_DATA = 12
 };
 
+enum inner_header_field_type {
+    IHD_END = 0,
+    IHD_IRS_ID = 1,
+    IHD_IRS_KEY = 2,
+    IHD_BINARY = 3
+};
+
 enum compression_type {
     COMPRESSION_NONE = 0,
     COMPRESSION_GZIP = 1
-};
-
-enum irs_type {
-    IRS_NULL = 0,
-    IRS_ARCFOURVARIANT = 1,
-    IRS_SALSA20 = 2,
-    IRS_CHACHA20 = 3
 };
 
 enum map_type {
@@ -113,7 +113,7 @@ typedef struct {
     const void *seed;
     size_t seed_sz;
 
-    enum irs_type irs;
+    kdbxo_irs_type irs;
     const void *irs_key;
     size_t irs_key_sz;
 
@@ -294,7 +294,7 @@ static kdbxo_result process_hdr(kdbx_header *hdr, uint8_t type, const char *data
         break;
     case HDR_IRS_ID:
         FAIL_IF(datasz < 4, "not enough data in process_hdr");
-        hdr->irs = (enum irs_type) (*(const int32_t *) data);
+        hdr->irs = (kdbxo_irs_type) (*(const int32_t *) data);
         break;
     case HDR_KDF_PARAMETERS:
         (void)0;
@@ -464,124 +464,164 @@ fail:
     return 0;
 }
 
-static size_t kdbx3(const char *in, const char *const end, const char *key32, void **outp) {
+static kdbxo_result kdbx3(const char *in, const char *const end, const char *key32, kdbxo_read_result **outp) {
     kdbx_header hdr = { 0 };
     const char *const file_start = in - sizeof(kdbx_magic);
     // TODO compute header checksum to pass to XML side for verification
     (void)file_start;
     while (1) {
         if (in + 3 > end) {
-            return 0;
+            return RESULT_ERR;
         }
         uint8_t type = *(const uint8_t *) in;
         size_t size = *(const uint16_t *) (in + 1);
         if (in + 3 + size > end) {
-            return 0;
+            return RESULT_ERR;
         }
         kdbxo_result r = process_hdr(&hdr, type, in + 3, size);
         in += 3 + size;
         if (r == RESULT_END) {
             break;
         } else if (r) {
-            return 0;
+            return RESULT_ERR;
         }
     }
 
-    if (validate_hdr(&hdr)) {
-        return 0;
-    }
+    FAIL_IF(validate_hdr(&hdr), NULL);
 
     // kdbx3-specific header field
-    if (!hdr.ssb) {
-        kdbxo_set_error("stream start bytes missing");
-        return 0;
-    }
-    if (hdr.ssb_sz != 32) {
-        kdbxo_set_error("stream start bytes size invalid");
-        return 0;
-    }
-    if (!hdr.irs_key) {
-        kdbxo_set_error("IRS key missing");
-        return 0;
-    }
+    FAIL_IF(!hdr.ssb, "stream start bytes missing");
+    FAIL_IF(hdr.ssb_sz != 32, "stream start bytes size invalid");
+    FAIL_IF(!hdr.irs_key, "IRS key missing");
 
     char crypto_key[32] = { 0 };
     {
         char transformed_key[32] = { 0 };
         memcpy(transformed_key, key32, 32);
-        if (apply_kdf(&hdr, transformed_key) ||
-            kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key)) {
-            return 0;
-        }
+        FAIL_IF(apply_kdf(&hdr, transformed_key) ||
+                kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key), NULL);
         memset(transformed_key, 0, 32);
     }
 
     const size_t ptsz = end - in;
     char *const pt = malloc(ptsz);
-    if (!pt) {
-        kdbxo_set_error("malloc failed in kdbx3");
-        return 0;
-    }
+    FAIL_IF(!pt, "malloc failed in kdbx3");
 
     if (apply_cipher(&hdr, crypto_key, pt, in, ptsz)) {
         memset(pt, 0, ptsz);
         free(pt);
         kdbxo_set_error("decryption failed; wrong key?");
-        return 0;
+        return RESULT_ERR;
     }
 
     if (memcmp(pt, hdr.ssb, 32)) {
         memset(pt, 0, ptsz);
         free(pt);
         kdbxo_set_error("stream start bytes wrong; wrong key?");
-        return 0;
+        return RESULT_ERR;
     }
 
     void *unhashed = NULL;
     size_t unhashedsz = kdbxo_hashedblock_d(pt + 32, ptsz - 32, &unhashed);
     memset(pt, 0, ptsz);
     free(pt);
-    if (!unhashedsz || !unhashed) {
-        kdbxo_set_error("hashed block verification failed; wrong key?");
-        return 0;
-    }
+    FAIL_IF(!unhashedsz || !unhashed, "hashed block verification failed; wrong key?");
 
+    char *xml;
+    size_t xmlsz;
     if (hdr.compression == COMPRESSION_GZIP) {
         void *decomp = NULL;
         size_t decompsz = gunzip(unhashed, unhashedsz, &decomp);
         memset(unhashed, 0, unhashedsz);
         free(unhashed);
-        if (!decompsz || !decomp) {
-            return 0;
-        }
+        FAIL_IF(!decomp || !decompsz, NULL);
 
-        *outp = decomp;
-        return decompsz;
+        xml = decomp;
+        xmlsz = decompsz;
     } else {
-        *outp = unhashed;
-        return unhashedsz;
+        xml = unhashed;
+        xmlsz = unhashedsz;
     }
+
+    kdbxo_read_result *rr = calloc(1, sizeof(kdbxo_read_result));
+    rr->xml = xml;
+    rr->xmlsz = xmlsz;
+    rr->irs = hdr.irs;
+    rr->irs_key = hdr.irs_key;
+    rr->irs_key_sz = hdr.irs_key_sz;
+    rr->to_free = xml;
+
+    *outp = rr;
+    return RESULT_OK;
 }
 
-static size_t kdbx4(const char *in, const char *const end, const char *key32, void **outp) {
+static kdbxo_result kdbx4_read_ihdr(kdbx_header *hdr, kdbxo_binary *bin, size_t *binsz, const char *ihdr, const char *const end, const char **ihdr_end) {
+    if (binsz) {
+        *binsz = 0;
+    }
+    size_t bin_idx = 0;
+    while (1) {
+        if (ihdr + 5 > end) {
+            return RESULT_ERR;
+        }
+        enum inner_header_field_type type = (enum inner_header_field_type) *(const uint8_t *) ihdr;
+        size_t size = *(const uint32_t *) (ihdr + 1);
+        const char *data = ihdr + 5;
+        if (data + size > end) {
+            return RESULT_ERR;
+        }
+        if (hdr) {
+            switch (type) {
+            default:
+            case IHD_END:
+                break;
+            case IHD_IRS_ID:
+                FAIL_IF(size < 4, "not enough data in kdbx4_read_ihdr");
+                hdr->irs = (kdbxo_irs_type) (*(const int32_t *) data);
+                break;
+            case IHD_IRS_KEY:
+                hdr->irs_key = data;
+                hdr->irs_key_sz = size;
+                break;
+            case IHD_BINARY:
+                if (binsz) {
+                    (*binsz)++;
+                }
+                break;
+            }
+        } else if (bin && type == IHD_BINARY) {
+            FAIL_IF(size < 1, "not enough data in kdbx4_read_ihdr");
+            kdbxo_binary *cur_bin = bin + (bin_idx++);
+            cur_bin->data = data + 1;
+            cur_bin->datasz = size - 1;
+            cur_bin->prot = !!(*data & 1);
+        }
+        ihdr += 5 + size;
+        if (type == IHD_END) {
+            break;
+        }
+    }
+
+    if (ihdr_end) {
+        *ihdr_end = ihdr;
+    }
+    return RESULT_OK;
+}
+
+static size_t kdbx4(const char *in, const char *const end, const char *key32, kdbxo_read_result **outp) {
     kdbx_header hdr = { 0 };
     const char *const file_start = in - sizeof(kdbx_magic);
     while (1) {
-        if (in + 5 > end) {
-            return 0;
-        }
+        FAIL_IF(in + 5 > end, "unexpected EOF reading header");
         uint8_t type = *(const uint8_t *) in;
         size_t size = *(const uint32_t *) (in + 1);
-        if (in + 5 + size > end) {
-            return 0;
-        }
+        FAIL_IF(in + 5 + size > end, "unexpected EOF reading header");
         kdbxo_result r = process_hdr(&hdr, type, in + 5, size);
         in += 5 + size;
         if (r == RESULT_END) {
             break;
-        } else if (r) {
-            return 0;
         }
+        FAIL_IF(r, NULL);
     }
 
     char crypto_key[32] = { 0 };
@@ -589,65 +629,131 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, vo
     {
         char transformed_key[32] = { 0 };
         memcpy(transformed_key, key32, 32);
-        if (apply_kdf(&hdr, transformed_key) ||
+        int fail = apply_kdf(&hdr, transformed_key) ||
             kdbxo_crypto_key(hdr.seed, transformed_key, crypto_key) ||
-            kdbxo_hmac_key(hdr.seed, transformed_key, hmac_key)) {
-            return 0;
-        }
+            kdbxo_hmac_key(hdr.seed, transformed_key, hmac_key);
         memset(transformed_key, 0, 32);
+        if (fail) {
+            goto fail;
+        }
     }
 
     if (in + 64 > end) {
         kdbxo_set_error("unexpected EOF");
-        return 0;
+        goto fail;
     }
 
     {
         char hdr_hash[32] = { 0 };
         if (kdbxo_sha256(hdr_hash, file_start, in - file_start)) {
-            return 0;
+            goto fail;
         }
         if (memcmp(hdr_hash, in, 32)) {
             kdbxo_set_error("header checksum mismatch");
-            return 0;
+            goto fail;
         }
         char hdr_hmac_key[64] = { 0 };
         if (kdbxo_hmac_block_key(hdr_hmac_key, hmac_key, 64, 0xFFFFFFFFFFFFFFFFull) ||
             kdbxo_hmacsha256(hdr_hmac_key, hdr_hash, file_start, in - file_start)) {
-            return 0;
+            goto fail;
         }
         if (memcmp(hdr_hash, in + 32, 32)) {
             kdbxo_set_error("header HMAC mismatch");
-            return 0;
+            goto fail;
         }
         in += 64;
     }
 
     if (validate_hdr(&hdr)) {
-        return 0;
+        goto fail;
     }
 
-    return 0;
+    size_t hmacsz = end - in;
+    void *unhmac = NULL;
+    size_t unhmacsz = kdbxo_hmacblock_d(in, hmacsz, hmac_key, &unhmac);
+    in = NULL; // shouldn't be derefing in after this
+    if (!unhmacsz || !unhmac) {
+        kdbxo_set_error("HMAC block verification failed; wrong key?");
+        goto fail;
+    }
+    memset(hmac_key, 0, 32);
+
+    char *pt = malloc(unhmacsz);
+    if (!pt) {
+        free(unhmac);
+        kdbxo_set_error("malloc failed in kdbx4");
+        goto fail;
+    }
+
+    if (apply_cipher(&hdr, crypto_key, pt, unhmac, unhmacsz)) {
+        memset(pt, 0, unhmacsz);
+        free(pt);
+        kdbxo_set_error("decryption failed; wrong key?");
+        goto fail;
+    }
+    free(unhmac); // no need to zero, this is still encrypted
+
+    size_t ptsz;
+    if (hdr.compression == COMPRESSION_GZIP) {
+        void *decomp = NULL;
+        size_t decompsz = gunzip(pt, unhmacsz, &decomp);
+        memset(pt, 0, unhmacsz);
+        free(pt);
+        if (!decompsz || !decomp) {
+            goto fail;
+        }
+
+        pt = decomp;
+        ptsz = decompsz;
+    } else {
+        ptsz = unhmacsz;
+    }
+
+    const char *const ihdr = pt;
+    const char *ihdr_end = NULL;
+    size_t binsz;
+    if (kdbx4_read_ihdr(&hdr, NULL, &binsz, ihdr, pt + ptsz, &ihdr_end)) {
+        goto failpt;
+    }
+    kdbxo_read_result *rr = calloc(1, sizeof(kdbxo_read_result) + binsz*sizeof(kdbxo_binary));
+    if (!rr) {
+        goto failpt;
+    }
+    if (kdbx4_read_ihdr(NULL, rr->binary, NULL, ihdr, pt + ptsz, NULL)) {
+        free(rr);
+        goto failpt;
+    }
+    if (!hdr.irs_key) {
+        kdbxo_set_error("IRS key missing");
+        free(rr);
+        goto failpt;
+    }
+
+    const char *const xml = ihdr_end;
+    size_t xmlsz = ptsz - (xml - ihdr);
+    rr->xml = xml;
+    rr->xmlsz = xmlsz;
+    rr->binarysz = binsz;
+    rr->to_free = pt;
+    *outp = rr;
+    return RESULT_OK;
+failpt:
+    memset(pt, 0, ptsz);
+    free(pt);
+fail:
+    memset(crypto_key, 0, 32);
+    memset(hmac_key, 0, 32);
+    return RESULT_ERR;
 }
 
-size_t kdbxo_unwrap(const char *in, size_t insz, const char *key32, void **outp) {
+kdbxo_result kdbxo_unwrap(const char *in, size_t insz, const char *key32, kdbxo_read_result **outp) {
     *outp = NULL;
-    if (insz < sizeof(kdbx_magic)) {
-        kdbxo_set_error("file too short");
-        return 0;
-    }
+    FAIL_IF(insz < sizeof(kdbx_magic), "file too short");
     const char *const end = in + insz;
 
     const kdbx_magic *hdr = (const kdbx_magic *) in;
-    if (hdr->sig != KDBX_SIG) {
-        kdbxo_set_error("invalid magic");
-        return 0;
-    }
-
-    if (hdr->ver_major < 2 || hdr->ver_major > 4) {
-        kdbxo_set_error("unsupported version");
-        return 0;
-    }
+    FAIL_IF(hdr->sig != KDBX_SIG, "invalid magic");
+    FAIL_IF(hdr->ver_major < 2 || hdr->ver_major > 4, "unsupported version");
 
     in += sizeof(kdbx_magic);
     if (hdr->ver_major == 4) {
@@ -655,4 +761,10 @@ size_t kdbxo_unwrap(const char *in, size_t insz, const char *key32, void **outp)
     } else {
         return kdbx3(in, end, key32, outp);
     }
+}
+
+void kdbxo_free_read_result(kdbxo_read_result *rr) {
+    if (!rr) { return; }
+    if (rr->to_free) { free(rr->to_free); }
+    free(rr);
 }
