@@ -61,6 +61,12 @@ int main(int argc, char *argv[]) {
         printf("\n");
     }
     printf("Binary count: %zd\n", rr->binarysz);
+    for (size_t i = 0; i < rr->binarysz; ++i) {
+        kdbxo_binary *bin = rr->binary + i;
+        printf("Binary %zd (protected: %d): ", i, bin->prot);
+        printhex(bin->data, bin->datasz);
+        printf("\n");
+    }
     fwrite(rr->xml, 1, rr->xmlsz, stdout);
     kdbxo_free_read_result(rr);
     free(data);
