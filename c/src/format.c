@@ -759,7 +759,7 @@ static size_t kdbx4(const char *in, const char *const end, const char *key32, kd
     rr->to_free = pt;
     *outp = rr;
     memset(&hdr, 0, sizeof(hdr));
-    memset(ihdr, 0, xml - ihdr);
+
     return RESULT_OK;
 failpt:
     memset(pt, 0, ptsz);
