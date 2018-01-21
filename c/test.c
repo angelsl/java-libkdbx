@@ -1,8 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "src/kdbxouter.h"
+
+static void printhex(const void *in, size_t sz) {
+    const unsigned char *hex = in;
+    static char hd[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    for (size_t i = 0; i < sz; ++i) {
+        printf("%c%c", hd[(hex[i] & 0xFF) >> 4], hd[hex[i] & 0xF]);
+    }
+}
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
@@ -45,6 +55,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (rr->irs_key) {
+        printf("IRS type: %d\nIRS key: ", rr->irs);
+        printhex(rr->irs_key, rr->irs_key_sz);
+        printf("\n");
+    }
+    printf("Binary count: %zd\n", rr->binarysz);
     fwrite(rr->xml, 1, rr->xmlsz, stdout);
     kdbxo_free_read_result(rr);
     free(data);
