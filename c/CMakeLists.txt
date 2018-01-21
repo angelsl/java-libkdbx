@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 enable_language(C)
 
+find_package(JNI)
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -116,8 +118,10 @@ target_compile_definitions(tomcrypt PRIVATE "LTC_SOURCE"
 
 set(KDBXOUTER_SOURCES
     src/crypto.c
-    src/format.c)
+    src/format.c
+    src/kdbxjni.c)
 add_library(kdbxouter SHARED ${KDBXOUTER_SOURCES})
+target_include_directories(kdbxouter PRIVATE ${JNI_INCLUDE_DIRS})
 target_link_libraries(kdbxouter argon2 tomcrypt pthread z)
 target_compile_options(kdbxouter PRIVATE "-std=c11;-g;-Wall;-Wextra;-pedantic"
                                  PRIVATE "-pthread")
