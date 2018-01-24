@@ -9,5 +9,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Gradle: org.ogce:xpp3:1.1.6" level="project" />
+    <orderEntry type="library" name="Gradle: junit:junit:4.7" level="project" />
+    <orderEntry type="library" name="Gradle: jakarta-regexp:jakarta-regexp:1.4" level="project" />
   </component>
 </module>
