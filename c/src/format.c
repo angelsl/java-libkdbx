@@ -781,11 +781,19 @@ kdbxo_result kdbxo_unwrap(const char *in, size_t insz, const char *key32, kdbxo_
     FAIL_IF(hdr->ver_major < 2 || hdr->ver_major > 4, "unsupported version");
 
     in += sizeof(kdbx_magic);
+    kdbxo_result r;
     if (hdr->ver_major == 4) {
-        return kdbx4(in, end, key32, outp);
+        r = kdbx4(in, end, key32, outp);
     } else {
-        return kdbx3(in, end, key32, outp);
+        r = kdbx3(in, end, key32, outp);
     }
+
+    if (!r && *outp) {
+        (*outp)->version_major = hdr->ver_major;
+        (*outp)->version_minor = hdr->ver_minor;
+    }
+
+    return r;
 }
 
 void kdbxo_free_read_result(kdbxo_read_result *rr) {

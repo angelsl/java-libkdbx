@@ -157,17 +157,20 @@ JNIEXPORT jobject JNICALL Java_io_github_angelsl_java_libkdbx_format_KDBXOuter_p
         goto fail;
     }
 
-    static jfieldID jf_xml = NULL, jf_irs = NULL, jf_irsKey = NULL,
-                    jf_binaries = NULL, jf_binariesProtection = NULL;
-    if (!jf_xml) { jf_xml = (*jenv)->GetFieldID(jenv, cls_NativeResult, "xml", "[B"); }
-    if (!jf_irs) { jf_irs = (*jenv)->GetFieldID(jenv, cls_NativeResult, "irs", "I"); }
-    if (!jf_irsKey) { jf_irsKey = (*jenv)->GetFieldID(jenv, cls_NativeResult, "irsKey", "[B"); }
-    if (!jf_binaries) { jf_binaries = (*jenv)->GetFieldID(jenv, cls_NativeResult, "binaries", "[[B"); }
-    if (!jf_binariesProtection) { jf_binariesProtection = (*jenv)->GetFieldID(jenv, cls_NativeResult, "binariesProtection", "[Z"); }
-    if (!jf_xml || !jf_irs || !jf_irsKey || !jf_binaries || !jf_binariesProtection) {
-        throw(jenv, "Failed to load NativeResult fields");
-        goto fail;
-    }
+#define KJNI_GF(name, type) static jfieldID jf_ ## name = NULL; \
+    if (!jf_ ## name) { jf_ ## name = (*jenv)->GetFieldID(jenv, cls_NativeResult, #name, type); } \
+    if (!jf_ ## name) { throw(jenv, "Failed to load NativeResult field " #name); goto fail; } \
+    (void) 0
+
+    KJNI_GF(xml, "[B");
+    KJNI_GF(irs, "I");
+    KJNI_GF(irsKey, "[B");
+    KJNI_GF(binaries, "[[B");
+    KJNI_GF(binariesProtection, "[Z");
+    KJNI_GF(versionMajor, "I");
+    KJNI_GF(versionMinor, "I");
+
+#undef KJNI_GF
 
     jbyteArray jp_xml = (*jenv)->NewByteArray(jenv, rr->xmlsz),
                jp_irsKey = (*jenv)->NewByteArray(jenv, rr->irs_key_sz);
@@ -221,6 +224,8 @@ JNIEXPORT jobject JNICALL Java_io_github_angelsl_java_libkdbx_format_KDBXOuter_p
     }
 
     (*jenv)->SetIntField(jenv, jobj, jf_irs, (jint) rr->irs);
+    (*jenv)->SetIntField(jenv, jobj, jf_versionMajor, (jint) rr->version_major);
+    (*jenv)->SetIntField(jenv, jobj, jf_versionMinor, (jint) rr->version_minor);
     (*jenv)->SetObjectField(jenv, jobj, jf_xml, jp_xml);
     (*jenv)->SetObjectField(jenv, jobj, jf_irsKey, jp_irsKey);
     (*jenv)->SetObjectField(jenv, jobj, jf_binaries, jp_binaries);

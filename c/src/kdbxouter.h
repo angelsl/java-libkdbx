@@ -27,6 +27,8 @@ typedef struct {
 } kdbxo_binary;
 
 typedef struct {
+    int version_major;
+    int version_minor;
     kdbxo_irs_type irs;
     const char *irs_key;
     size_t irs_key_sz;

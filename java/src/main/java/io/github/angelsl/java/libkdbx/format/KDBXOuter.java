@@ -9,6 +9,8 @@ public class KDBXOuter {
     private KDBXIRS _irs;
     private KDBXBinary[] _binaries;
     private String _xml;
+    private int _versionMajor;
+    private int _versionMinor;
 
     public KDBXIRS getIRS() {
         return _irs;
@@ -20,6 +22,14 @@ public class KDBXOuter {
 
     public String getXML() {
         return _xml;
+    }
+
+    public int getVersionMajor() {
+        return _versionMajor;
+    }
+
+    public int getVersionMinor() {
+        return _versionMinor;
     }
 
     static {
@@ -48,6 +58,9 @@ public class KDBXOuter {
             for (int i = 0; i < n.binaries.length; ++i) {
                 r._binaries[i] = new KDBXBinary(n.binaries[i], n.binariesProtection[i], r._irs);
             }
+
+            r._versionMajor = n.versionMajor;
+            r._versionMinor = n.versionMinor;
         } catch (UnsupportedEncodingException e) {
             throw new KDBXException("Could not decode XML", e);
         } finally {
@@ -68,5 +81,7 @@ public class KDBXOuter {
         byte[] irsKey;
         byte[][] binaries;
         boolean[] binariesProtection;
+        int versionMajor;
+        int versionMinor;
     }
 }
