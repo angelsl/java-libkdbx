@@ -1,7 +1,5 @@
 package io.github.angelsl.java.libkdbx.format;
 
-import io.github.angelsl.java.libkdbx.KDBXIRS;
-
 public class KDBXBinary {
     private boolean _protected;
     private byte[] _data;

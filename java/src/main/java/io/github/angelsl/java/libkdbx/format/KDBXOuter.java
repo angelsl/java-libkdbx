@@ -1,7 +1,6 @@
 package io.github.angelsl.java.libkdbx.format;
 
 import io.github.angelsl.java.libkdbx.KDBXException;
-import io.github.angelsl.java.libkdbx.KDBXIRS;
 
 import java.io.UnsupportedEncodingException;
 

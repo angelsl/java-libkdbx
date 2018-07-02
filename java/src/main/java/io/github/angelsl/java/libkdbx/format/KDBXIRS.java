@@ -1,4 +1,4 @@
-package io.github.angelsl.java.libkdbx;
+package io.github.angelsl.java.libkdbx.format;
 
 public class KDBXIRS {
     static {
